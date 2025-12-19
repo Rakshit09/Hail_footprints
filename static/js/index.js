@@ -123,17 +123,49 @@
   }
 
   function showPreview(columns, rows) {
-    const thead = $('previewThead');
-    const tbody = $('previewTbody');
+    const thead = document.getElementById('previewThead');
+    const tbody = document.getElementById('previewTbody');
     if (!thead || !tbody) return;
-    thead.innerHTML = `<tr>` + columns.map(c => `<th>${escapeHtml(c)}</th>`).join('') + `</tr>`;
+    
+    thead.innerHTML = `<tr>` + columns.map(c => `<th class="px-4 py-3 text-left">${escapeHtml(c)}</th>`).join('') + `</tr>`;
     tbody.innerHTML = (rows || []).map(r => (
-      `<tr>` +
-      columns.map(c => `<td>${escapeHtml(r?.[c] ?? '')}</td>`).join('') +
-      `</tr>`
+        `<tr class="hover:bg-gray-50">` +
+        columns.map(c => `<td class="px-4 py-2.5 whitespace-nowrap">${escapeHtml(r?.[c] ?? '')}</td>`).join('') +
+        `</tr>`
     )).join('');
+    
+    // Sync heights after populating
+    setTimeout(syncPreviewHeight, 50);
+}
+
+  // Sync Data Preview height to match left column
+  function syncPreviewHeight() {
+    const leftColumn = document.getElementById('leftConfigColumn');
+    const previewCard = document.getElementById('dataPreviewCard');
+    const previewContainer = document.getElementById('previewTableContainer');
+    
+    if (leftColumn && previewCard && previewContainer) {
+        // Get the left column height
+        const leftHeight = leftColumn.offsetHeight;
+        
+        // Set the preview card to match
+        previewCard.style.height = leftHeight + 'px';
+        
+        // Calculate header height and set container height
+        const header = previewCard.querySelector('.config-group-header');
+        const headerHeight = header ? header.offsetHeight : 45;
+        previewContainer.style.height = (leftHeight - headerHeight) + 'px';
+    }
   }
 
+  // Call on config section show and window resize
+  window.addEventListener('resize', syncPreviewHeight);
+  document.getElementById('configSection').style.display = 'block';
+  setTimeout(syncPreviewHeight, 100);
+
+// Also call after preview is populated - add this after showPreview() is called
+// Example: after your existing showPreview call, add:
+// syncPreviewHeight();
   function revealConfigSection() {
     const section = $('configSection');
     if (section) {
