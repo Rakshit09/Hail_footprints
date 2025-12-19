@@ -1,6 +1,6 @@
 #folders
-upload/
-output/
+uploads/
+outputs/
 
 #csv files
 *.csv
