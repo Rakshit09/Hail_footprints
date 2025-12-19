@@ -7,7 +7,7 @@ from pathlib import Path
 from datetime import datetime
 import io
 import base64
-
+import re
 import numpy as np
 import pandas as pd
 
@@ -57,23 +57,28 @@ def allowed_file(filename):
 
 
 def guess_column_type(col_name: str) -> str:
-    """Guess column type based on name patterns."""
-    col_lower = col_name.lower()
+    """Guess column type based on strict name patterns."""
     
-    # Latitude patterns
-    lat_patterns = ['lat', 'latitude', 'y_coord', 'ycoord', 'lat_dd', 'y']
-    if any(p in col_lower for p in lat_patterns):
+    col_lower = col_name.lower().strip()
+    
+    # --- 1. LATITUDE ---
+    if col_lower in ['lat', 'latitude', 'y', 'y_coord', 'lat_dd', 'slat', 'start_lat']:
+        return 'latitude'
+        
+    if re.search(r'(^|[\s_])(lat|latitude)([\s_]|$)', col_lower):
         return 'latitude'
     
-    # Longitude patterns
-    lon_patterns = ['lon', 'long', 'longitude', 'x_coord', 'xcoord', 'lon_dd', 'x', 'lng']
-    if any(p in col_lower for p in lon_patterns):
+    # --- 2. LONGITUDE ---
+    if col_lower in ['lon', 'long', 'lng', 'longitude', 'x', 'x_coord', 'lon_dd', 'slon', 'start_lon']:
+        return 'longitude'
+        
+    if re.search(r'(^|[\s_])(lon|lng|long|longitude)([\s_]|$)', col_lower):
         return 'longitude'
     
-    # Hail size patterns
-    hail_patterns = ['hail', 'size', 'diameter', 'diam', 'max_hail', 'hailsize']
-    if any(p in col_lower for p in hail_patterns):
+    # --- 3. HAIL SIZE ---
+    if col_lower in ['max_hail_diameter','max_size', 'hail_size', 'hailsize', 'maximum_hail_size', 'hail', 'size', 'diameter', 'diam', 'mag', 'magnitude', 'hail_size']:
         return 'hail_size'
+    
     
     return 'unknown'
 
@@ -162,12 +167,53 @@ def upload_file():
         
         columns = list(df_preview.columns)
         
-        # Auto-detect column types
-        column_suggestions = {}
+        # =======================================================
+        # AUTO-DETECT WITH SCORING / PRIORITIZATION
+        # =======================================================
+        best_matches = {}  # Format: {'latitude': {'col': 'Name', 'score': 1}}
+        
         for col in columns:
             col_type = guess_column_type(col)
+            
             if col_type != 'unknown':
-                column_suggestions[col_type] = col
+                col_lower = col.lower()
+                score = 3  # Default score (worst)
+                
+                # --- SCORING RULES (Lower is Better) ---
+                
+                # 1. LATITUDE Priority
+                if col_type == 'latitude':
+                    if col_lower in ['latitude', 'lat', 'y', 'lat_dd']:
+                        score = 1
+                    elif 'start' in col_lower or col_lower == 'slat':
+                        score = 2
+                        
+                # 2. LONGITUDE Priority
+                elif col_type == 'longitude':
+                    if col_lower in ['longitude', 'lon', 'long', 'x', 'lon_dd', 'lng']:
+                        score = 1
+                    elif 'start' in col_lower or col_lower == 'slon':
+                        score = 2
+                
+                # 3. HAIL SIZE Priority
+                elif col_type == 'hail_size':
+                    if col_lower in ['max_hail_diameter', 'hail_size', 'hailsize', 'maximum_hail_diameter']:
+                        score = 1
+                    elif 'max' in col_lower or 'diam' in col_lower:
+                        score = 2
+
+                # --- SELECTION LOGIC ---
+                if col_type not in best_matches:
+                    # No match yet? Take this one.
+                    best_matches[col_type] = {'col': col, 'score': score}
+                else:
+                    # Existing match? Only replace if new score is LOWER (better)
+                    if score < best_matches[col_type]['score']:
+                        best_matches[col_type] = {'col': col, 'score': score}
+        
+        # Flatten best_matches into simple dictionary
+        column_suggestions = {k: v['col'] for k, v in best_matches.items()}
+        # =======================================================
         
         # Convert to records with proper sanitization
         sample_data = df_preview.to_dict('records')
