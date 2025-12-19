@@ -11,10 +11,7 @@ import re
 import numpy as np
 import pandas as pd
 
-from flask import (
-    Flask, render_template, request, jsonify, 
-    send_from_directory, url_for, session, send_file
-)
+from flask import (Flask, render_template, request, jsonify, send_from_directory, url_for, session, send_file)
 
 from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
@@ -22,21 +19,17 @@ from werkzeug.utils import secure_filename
 from config import Config
 from processing.footprint import Params, run_footprint, get_processing_status
 
-# ============================================================================
-# SSL Certificate Fix for Windows
-# This disables SSL verification for tile fetching (contextily/requests)
-# Necessary on some Windows systems with corporate firewalls or outdated certs
-# ============================================================================
+    # SSL Certificate Fix for Windows
 try:
-    # Disable SSL verification globally for requests library
+    # disable SSL verification globally for requests library
     os.environ['CURL_CA_BUNDLE'] = ''
     os.environ['REQUESTS_CA_BUNDLE'] = ''
     
-    # Disable SSL warnings
+    # disable SSL warnings
     import urllib3
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     
-    # Create an unverified SSL context for urllib
+    # unverified SSL context for urllib
     ssl._create_default_https_context = ssl._create_unverified_context
     
     print("[SSL] Certificate verification disabled for tile fetching")
@@ -47,7 +40,7 @@ app = Flask(__name__)
 app.config.from_object(Config)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
-# Store processing jobs
+# store processing jobs
 processing_jobs = {}
 
 
@@ -57,7 +50,7 @@ def allowed_file(filename):
 
 
 def guess_column_type(col_name: str) -> str:
-    """Guess column type based on strict name patterns."""
+    """guess column type based on strict name patterns."""
     
     col_lower = col_name.lower().strip()
     
@@ -85,8 +78,8 @@ def guess_column_type(col_name: str) -> str:
 
 def sanitize_for_json(obj):
     """
-    Recursively sanitize an object for JSON serialization.
-    Handles NaN, Inf, numpy types, etc.
+    recursively sanitize an object for JSON serialization
+    handles NaN, Inf, numpy types, etc
     """
     if obj is None:
         return None
@@ -116,7 +109,7 @@ def sanitize_for_json(obj):
 
 @app.route('/')
 def index():
-    """Main page with upload form."""
+    """main page with upload form"""
     max_upload_bytes = getattr(Config, 'MAX_CONTENT_LENGTH', 50 * 1024 * 1024)
     max_upload_mb = int(max_upload_bytes / (1024 * 1024))
     allowed_ext = sorted(list(getattr(Config, 'ALLOWED_EXTENSIONS', {'csv'})))
@@ -130,7 +123,7 @@ def index():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    """Handle file upload and return column info."""
+    """handle file upload and return column info"""
     if 'file' not in request.files:
         return jsonify({'error': 'No file provided'}), 400
     
@@ -141,7 +134,7 @@ def upload_file():
     if not allowed_file(file.filename):
         return jsonify({'error': 'File type not allowed. Supported: CSV, GPKG, GeoJSON, SHP'}), 400
     
-    # Generate unique ID for this session
+    # generate unique ID for this session
     job_id = str(uuid.uuid4())[:8]
     filename = secure_filename(file.filename)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -150,13 +143,13 @@ def upload_file():
     
     file.save(filepath)
     
-    # Parse columns
+    # parse columns
     try:
         if filename.lower().endswith('.csv'):
-            # Read with flexible parsing
+            # read with flexible parsing
             df_preview = pd.read_csv(filepath, nrows=25)
             
-            # Count total rows (efficiently)
+            # count total rows 
             with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
                 row_count = sum(1 for _ in f) - 1  # subtract header
         else:
@@ -167,55 +160,50 @@ def upload_file():
         
         columns = list(df_preview.columns)
         
-        # =======================================================
-        # AUTO-DETECT WITH SCORING / PRIORITIZATION
-        # =======================================================
-        best_matches = {}  # Format: {'latitude': {'col': 'Name', 'score': 1}}
+        # auto-detect with scoring / prioritization
+        best_matches = {}  # format: {'latitude': {'col': 'Name', 'score': 1}}
         
         for col in columns:
             col_type = guess_column_type(col)
             
             if col_type != 'unknown':
                 col_lower = col.lower()
-                score = 3  # Default score (worst)
+                score = 3  # default score (worst)
                 
-                # --- SCORING RULES (Lower is Better) ---
+                    # --- scoring rules (lower is better) ---
                 
-                # 1. LATITUDE Priority
+                # 1. latitude priority
                 if col_type == 'latitude':
                     if col_lower in ['latitude', 'lat', 'y', 'lat_dd']:
                         score = 1
                     elif 'start' in col_lower or col_lower == 'slat':
                         score = 2
                         
-                # 2. LONGITUDE Priority
+                # 2. longitude priority
                 elif col_type == 'longitude':
                     if col_lower in ['longitude', 'lon', 'long', 'x', 'lon_dd', 'lng']:
                         score = 1
                     elif 'start' in col_lower or col_lower == 'slon':
                         score = 2
                 
-                # 3. HAIL SIZE Priority
+                # 3. hail size priority
                 elif col_type == 'hail_size':
                     if col_lower in ['max_hail_diameter', 'hail_size', 'hailsize', 'maximum_hail_diameter']:
                         score = 1
                     elif 'max' in col_lower or 'diam' in col_lower:
                         score = 2
 
-                # --- SELECTION LOGIC ---
+                # --- selection logic ---
                 if col_type not in best_matches:
-                    # No match yet? Take this one.
                     best_matches[col_type] = {'col': col, 'score': score}
                 else:
-                    # Existing match? Only replace if new score is LOWER (better)
                     if score < best_matches[col_type]['score']:
                         best_matches[col_type] = {'col': col, 'score': score}
         
-        # Flatten best_matches into simple dictionary
+        # flatten best_matches to dictionary
         column_suggestions = {k: v['col'] for k, v in best_matches.items()}
-        # =======================================================
         
-        # Convert to records with proper sanitization
+        # convert to records +sanitize
         sample_data = df_preview.to_dict('records')
         sample_data = sanitize_for_json(sample_data)
         
@@ -237,7 +225,7 @@ def upload_file():
 
 @app.route('/process', methods=['POST'])
 def process_footprint():
-    """Start footprint processing."""
+    """start footprint processing"""
     data = request.json
     
     required_fields = ['filename', 'lon_col', 'lat_col', 'hail_col', 'event_name']
@@ -247,11 +235,11 @@ def process_footprint():
     
     job_id = data.get('job_id', str(uuid.uuid4())[:8])
     
-    # Create job-specific output folder
+    # create job-specific output folder
     output_folder = Config.OUTPUT_FOLDER / job_id
     output_folder.mkdir(exist_ok=True)
     
-    # Build params
+    # build params
     params = Params(
         input_points=str(Config.UPLOAD_FOLDER / data['filename']),
         hail_field=data['hail_col'],
@@ -265,7 +253,7 @@ def process_footprint():
         job_id=job_id,
     )
     
-    # Store job info
+    # store job info
     processing_jobs[job_id] = {
         'status': 'queued',
         'progress': 0,
@@ -275,7 +263,7 @@ def process_footprint():
         'error': None
     }
     
-    # Start processing in background thread
+    # start processing in background thread
     thread = threading.Thread(
         target=run_processing_job,
         args=(job_id, params)
@@ -290,7 +278,7 @@ def process_footprint():
 
 
 def run_processing_job(job_id: str, params: Params):
-    """Run processing in background thread."""
+    """run processing in background thread"""
     def progress_callback(progress: int, message: str):
         processing_jobs[job_id]['progress'] = progress
         processing_jobs[job_id]['message'] = message
@@ -304,7 +292,7 @@ def run_processing_job(job_id: str, params: Params):
         processing_jobs[job_id]['status'] = 'processing'
         result = run_footprint(params, progress_callback=progress_callback)
         
-        # Sanitize result for JSON
+        # sanitize result for JSON
         result = sanitize_for_json(result)
         
         processing_jobs[job_id]['status'] = 'completed'
@@ -330,7 +318,7 @@ def run_processing_job(job_id: str, params: Params):
 
 @app.route('/status/<job_id>')
 def get_status(job_id):
-    """Get processing status."""
+    """get processing status"""
     if job_id not in processing_jobs:
         return jsonify({'error': 'Job not found'}), 404
     
@@ -346,7 +334,7 @@ def get_status(job_id):
 
 @app.route('/viewer/<job_id>')
 def viewer(job_id):
-    """Interactive map viewer."""
+    """interactive map viewer"""
     if job_id not in processing_jobs:
         return render_template('error.html', message='Job not found'), 404
     
@@ -362,14 +350,14 @@ def viewer(job_id):
 
 @app.route('/outputs/<job_id>/<filename>')
 def serve_output(job_id, filename):
-    """Serve output files."""
+    """serve output files"""
     output_folder = Config.OUTPUT_FOLDER / job_id
     return send_from_directory(output_folder, filename)
 
 
 @app.route('/geojson/<job_id>')
 def get_geojson(job_id):
-    """Get GeoJSON data for the map."""
+    """get GeoJSON data for the map"""
     if job_id not in processing_jobs:
         return jsonify({'error': 'Job not found'}), 404
     
@@ -377,12 +365,12 @@ def get_geojson(job_id):
     if job['status'] != 'completed' or not job['result']:
         return jsonify({'error': 'No data available'}), 400
     
-    # Get just the filename from result
+    # get filename from result
     geojson_filename = job['result'].get('geojson', '')
     if not geojson_filename:
         return jsonify({'error': 'GeoJSON not found'}), 404
     
-    # Build the full path using the job's output folder
+    # build full path using job's output folder
     geojson_path = Config.OUTPUT_FOLDER / job_id / geojson_filename
     
     if not geojson_path.exists():
@@ -396,7 +384,7 @@ def get_geojson(job_id):
 
 @app.route('/footprint_geojson/<job_id>')
 def get_footprint_geojson(job_id):
-    """Get dissolved footprint GeoJSON."""
+    """get dissolved footprint GeoJSON"""
     if job_id not in processing_jobs:
         return jsonify({'error': 'Job not found'}), 404
     
@@ -421,7 +409,7 @@ def get_footprint_geojson(job_id):
 
 @app.route('/points_geojson/<job_id>')
 def get_points_geojson(job_id):
-    """Get input points as GeoJSON."""
+    """get input points as GeoJSON"""
     if job_id not in processing_jobs:
         return jsonify({'error': 'Job not found'}), 404
     
@@ -444,7 +432,7 @@ def get_points_geojson(job_id):
     return jsonify(sanitize_for_json(data))
 
 
-# Basemap configurations
+# basemap configurations
 BASEMAPS = {
     'osm': {
         'name': 'OpenStreetMap',
@@ -526,11 +514,11 @@ BASEMAPS = {
 
 @app.route('/basemaps')
 def get_basemaps():
-    """Return available basemap options."""
+    """return available basemap options"""
     return jsonify(BASEMAPS)
 
 
-# Error template
+# error template
 @app.route('/error')
 def error_page():
     message = request.args.get('message', 'An error occurred')
@@ -538,19 +526,19 @@ def error_page():
 
 @app.route('/debug/<job_id>')
 def debug_job(job_id):
-    """Debug endpoint to check job status and files."""
+    """debug endpoint to check job status and files"""
     if job_id not in processing_jobs:
         return jsonify({'error': 'Job not found'}), 404
     
     job = processing_jobs[job_id]
     output_folder = Config.OUTPUT_FOLDER / job_id
     
-    # List files in output folder
+    # list files in output folder
     files = []
     if output_folder.exists():
         files = [f.name for f in output_folder.iterdir()]
     
-    # Check GeoJSON validity
+    # check GeoJSON validity
     geojson_check = {}
     if job['result']:
         for key in ['geojson', 'footprint_geojson', 'points_geojson']:
@@ -566,12 +554,12 @@ def debug_job(job_id):
                                 'features': len(data.get('features', [])),
                                 'crs': data.get('crs', {}).get('properties', {}).get('name', 'unknown')
                             }
-                            # Check first feature coordinates
+                            # check first feature coordinates
                             if data.get('features'):
                                 first_geom = data['features'][0].get('geometry', {})
                                 coords = first_geom.get('coordinates', [])
                                 if coords:
-                                    # Get sample coordinate
+                                    # get sample coordinate
                                     sample = coords
                                     while isinstance(sample, list) and len(sample) > 0 and isinstance(sample[0], list):
                                         sample = sample[0]
@@ -591,7 +579,7 @@ def debug_job(job_id):
 
 @app.route('/render_map/<job_id>', methods=['POST'])
 def render_map(job_id):
-    """Render a map with user-specified settings."""
+    """render a map with user-specified settings"""
     if job_id not in processing_jobs:
         return jsonify({'error': 'Job not found'}), 404
     
@@ -601,14 +589,14 @@ def render_map(job_id):
     
     data = request.json or {}
     
-    # Get parameters from request
+            # get parameters from request
     bounds = data.get('bounds')  # [minLon, minLat, maxLon, maxLat]
     basemap_id = data.get('basemap', 'carto_light')
     show_footprint = data.get('show_footprint', True)
     show_outline = data.get('show_outline', True)
     show_points = data.get('show_points', False)
     opacity = float(data.get('opacity', 0.6))
-    # Optional export sizing (pixels). If omitted, we pick a high-res default.
+    # optional export sizing (pixels). if omitted, we pick a high-res default.
     width_px = int(data.get('width_px', 3200))
     height_px = int(data.get('height_px', 2000))
     
@@ -649,13 +637,12 @@ def render_map(job_id):
 
 def fetch_tiles_manually(ax, ext_x1, ext_y1, ext_x2, ext_y2, zoom, tile_url_template):
     """
-    Manually fetch map tiles and compose them into a basemap.
+    manually fetch map tiles and compose them into a basemap.
     This bypasses contextily and uses requests directly with SSL disabled.
-    
-    All tile servers used are FREE and OPEN SOURCE:
-    - OpenStreetMap: Open Database License (ODbL)
-    - Carto: Free for most uses
-    - ESRI: Free for development/non-commercial
+    all tile servers used are free and open source:
+    - openstreetmap: open database license (ODbL)
+    - carto: free for most uses
+    - esri: free for development/non-commercial
     """
     import requests
     import math
@@ -666,7 +653,7 @@ def fetch_tiles_manually(ax, ext_x1, ext_y1, ext_x2, ext_y2, zoom, tile_url_temp
     print(f"[ManualTiles] Fetching tiles from: {tile_url_template[:50]}...")
     
     def deg2num(lat_deg, lon_deg, zoom):
-        """Convert lat/lon to tile numbers."""
+        """convert lat/lon to tile numbers"""
         lat_rad = math.radians(lat_deg)
         n = 2.0 ** zoom
         xtile = int((lon_deg + 180.0) / 360.0 * n)
@@ -674,7 +661,7 @@ def fetch_tiles_manually(ax, ext_x1, ext_y1, ext_x2, ext_y2, zoom, tile_url_temp
         return (xtile, ytile)
     
     def num2deg(xtile, ytile, zoom):
-        """Convert tile numbers to lat/lon of the NW corner."""
+        """convert tile numbers to lat/lon of the NW corner"""
         n = 2.0 ** zoom
         lon_deg = xtile / n * 360.0 - 180.0
         lat_rad = math.atan(math.sinh(math.pi * (1 - 2 * ytile / n)))
@@ -682,33 +669,33 @@ def fetch_tiles_manually(ax, ext_x1, ext_y1, ext_x2, ext_y2, zoom, tile_url_temp
         return (lat_deg, lon_deg)
     
     def latlon_to_mercator(lat, lon):
-        """Convert lat/lon to Web Mercator coordinates."""
+        """convert lat/lon to Web Mercator coordinates"""
         x = lon * 20037508.34 / 180.0
         y = math.log(math.tan((90 + lat) * math.pi / 360.0)) / (math.pi / 180.0)
         y = y * 20037508.34 / 180.0
         return x, y
     
-    # Convert mercator extent back to lat/lon
+    # convert mercator extent back to lat/lon
     def mercator_to_latlon(x, y):
         lon = x * 180.0 / 20037508.34
         lat = math.atan(math.exp(y * math.pi / 20037508.34)) * 360.0 / math.pi - 90
         return lat, lon
     
-    # Get corner coordinates in lat/lon
+    # get corner coordinates in lat/lon
     lat_min, lon_min = mercator_to_latlon(ext_x1, ext_y1)
     lat_max, lon_max = mercator_to_latlon(ext_x2, ext_y2)
     
-    # Get tile range
+    # get tile range
     x_min, y_max = deg2num(lat_min, lon_min, zoom)
     x_max, y_min = deg2num(lat_max, lon_max, zoom)
     
-    # Ensure correct order
+    # ensure correct order
     if x_min > x_max:
         x_min, x_max = x_max, x_min
     if y_min > y_max:
         y_min, y_max = y_max, y_min
     
-    # Limit number of tiles to prevent huge downloads
+    # limit number of tiles to prevent huge downloads
     max_tiles = 100
     num_tiles = (x_max - x_min + 1) * (y_max - y_min + 1)
     if num_tiles > max_tiles:
@@ -717,7 +704,7 @@ def fetch_tiles_manually(ax, ext_x1, ext_y1, ext_x2, ext_y2, zoom, tile_url_temp
     
     print(f"[ManualTiles] Fetching {num_tiles} tiles (x: {x_min}-{x_max}, y: {y_min}-{y_max})")
     
-    # Create session with SSL disabled
+    # create session with SSL disabled
     session = requests.Session()
     session.verify = False
     session.headers.update({
@@ -725,13 +712,13 @@ def fetch_tiles_manually(ax, ext_x1, ext_y1, ext_x2, ext_y2, zoom, tile_url_temp
         'Accept': 'image/png,image/*',
     })
     
-    # Fetch all tiles
+    # fetch all tiles
     tile_size = 256
     tiles = {}
     
     for x in range(x_min, x_max + 1):
         for y in range(y_min, y_max + 1):
-            # Format URL - handle both {z}/{x}/{y} and {z}/{y}/{x} patterns
+            # format URL - handle both {z}/{x}/{y} and {z}/{y}/{x} patterns
             url = tile_url_template.format(z=zoom, x=x, y=y)
             try:
                 response = session.get(url, timeout=10)
@@ -749,7 +736,7 @@ def fetch_tiles_manually(ax, ext_x1, ext_y1, ext_x2, ext_y2, zoom, tile_url_temp
     
     print(f"[ManualTiles] Successfully fetched {len(tiles)} tiles")
     
-    # Compose tiles into single image
+    # compose tiles into single image
     width = (x_max - x_min + 1) * tile_size
     height = (y_max - y_min + 1) * tile_size
     basemap_img = Image.new('RGB', (width, height), (245, 245, 245))
@@ -761,14 +748,14 @@ def fetch_tiles_manually(ax, ext_x1, ext_y1, ext_x2, ext_y2, zoom, tile_url_temp
             tile_img = tile_img.convert('RGB')
         basemap_img.paste(tile_img, (px, py))
     
-    # Calculate extent of the composed image in Web Mercator
+    # calculate extent of the composed image in web mercator
     nw_lat, nw_lon = num2deg(x_min, y_min, zoom)
     se_lat, se_lon = num2deg(x_max + 1, y_max + 1, zoom)
     
     nw_x, nw_y = latlon_to_mercator(nw_lat, nw_lon)
     se_x, se_y = latlon_to_mercator(se_lat, se_lon)
     
-    # Display the basemap
+    # display the basemap
     img_array = np.array(basemap_img)
     ax.imshow(img_array, extent=[nw_x, se_x, se_y, nw_y], zorder=1, aspect='auto')
     
@@ -793,7 +780,7 @@ def generate_map_png(
     width_px=3200,
     height_px=2000,
 ):
-    """Generate a PNG map with specified settings."""
+    """generate a PNG map with specified settings"""
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
@@ -819,7 +806,7 @@ def generate_map_png(
     print(f"[MapGen] Opacity: {opacity}")
     print(f"[MapGen] Target export size: {width_px}x{height_px}px")
     
-    # Load GeoJSON files
+    # load GeoJSON files
     footprint_gdf = None
     outline_gdf = None
     points_gdf = None
@@ -848,7 +835,7 @@ def generate_map_png(
         else:
             print(f"[MapGen] WARNING: Points file not found: {points_path}")
     
-    # Validate we have at least some data to render
+    # validate we have at least some data to render
     has_data = any([
         footprint_gdf is not None and not footprint_gdf.empty,
         outline_gdf is not None and not outline_gdf.empty,
@@ -858,7 +845,7 @@ def generate_map_png(
     if not has_data and (not bounds or len(bounds) != 4):
         raise ValueError("No data to render and no bounds provided")
     
-    # Determine extent in WGS84
+    # determine extent in WGS84
     if bounds and len(bounds) == 4 and all(b is not None for b in bounds):
         extent_minx, extent_miny, extent_maxx, extent_maxy = bounds
     elif footprint_gdf is not None and not footprint_gdf.empty:
@@ -868,11 +855,11 @@ def generate_map_png(
     else:
         raise ValueError("No bounds provided and no footprint data available")
     
-    # Validate bounds
+    # validate bounds
     if extent_minx >= extent_maxx or extent_miny >= extent_maxy:
         raise ValueError(f"Invalid bounds: [{extent_minx}, {extent_miny}, {extent_maxx}, {extent_maxy}]")
     
-    # Add padding (5%)
+    # add padding (5%)
     pad_x = (extent_maxx - extent_minx) * 0.05
     pad_y = (extent_maxy - extent_miny) * 0.05
     extent_minx -= pad_x
@@ -882,14 +869,14 @@ def generate_map_png(
     
     print(f"[MapGen] WGS84 extent: [{extent_minx:.4f}, {extent_miny:.4f}, {extent_maxx:.4f}, {extent_maxy:.4f}]")
     
-    # Convert extent to Web Mercator (EPSG:3857)
+    # convert extent to web mercator (EPSG:3857)
     transformer = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
     ext_x1, ext_y1 = transformer.transform(extent_minx, extent_miny)
     ext_x2, ext_y2 = transformer.transform(extent_maxx, extent_maxy)
     
     print(f"[MapGen] 3857 extent: [{ext_x1:.0f}, {ext_y1:.0f}, {ext_x2:.0f}, {ext_y2:.0f}]")
     
-    # Reproject data to 3857
+    # reproject data to 3857
     footprint_3857 = None
     outline_3857 = None
     points_3857 = None
@@ -903,13 +890,13 @@ def generate_map_png(
     if points_gdf is not None and not points_gdf.empty:
         points_3857 = points_gdf.to_crs(epsg=3857)
     
-    # Create figure
+    # create figure
     dpi = 150  # Reduced DPI for faster generation, still high quality
     fig_w_in = max(6, float(width_px) / dpi)
     fig_h_in = max(4, float(height_px) / dpi)
     fig, ax = plt.subplots(figsize=(fig_w_in, fig_h_in), dpi=dpi)
     
-    # Color scale - use the same interpolation as the frontend
+    # color scale
     cmap = plt.cm.YlOrRd
     vmin = hail_min if hail_min is not None else 0
     vmax = hail_max if hail_max is not None else 1
@@ -917,11 +904,11 @@ def generate_map_png(
         vmax = vmin + 1
     norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
     
-    # Plot data FIRST, then set extent, then add basemap
+    # plot data first, then set extent, then add basemap
     
-    # Plot footprint
+    # plot footprint
     if show_footprint and footprint_3857 is not None and not footprint_3857.empty:
-        # Check if Hail_Size column exists
+        # check if Hail_Size column exists
         if 'Hail_Size' in footprint_3857.columns:
             footprint_3857.plot(
                 ax=ax,
@@ -934,7 +921,7 @@ def generate_map_png(
                 zorder=2,
             )
         else:
-            # Fallback: plot with single color
+            # fallback: plot with single color
             footprint_3857.plot(
                 ax=ax,
                 color='#fd8d3c',
@@ -945,7 +932,7 @@ def generate_map_png(
             )
         print("[MapGen] Plotted footprint")
     
-    # Plot outline
+    # plot outline
     if show_outline and outline_3857 is not None and not outline_3857.empty:
         outline_3857.boundary.plot(
             ax=ax,
@@ -955,7 +942,7 @@ def generate_map_png(
         )
         print("[MapGen] Plotted outline")
     
-    # Plot points
+    # plot points
     if show_points and points_3857 is not None and not points_3857.empty:
         points_3857.plot(
             ax=ax,
@@ -967,11 +954,11 @@ def generate_map_png(
         )
         print("[MapGen] Plotted points")
     
-    # Set the extent
+    # set the extent
     ax.set_xlim(ext_x1, ext_x2)
     ax.set_ylim(ext_y1, ext_y2)
     
-    # Now add basemap AFTER plotting data and setting extent
+    # now add basemap after plotting data and setting extent
     basemap_added = False
     
     if HAS_CTX and basemap_id and basemap_id != 'none':
@@ -980,24 +967,20 @@ def generate_map_png(
         from PIL import Image
         from io import BytesIO
         
-        # ================================================================
-        # CRITICAL: Monkey-patch requests to disable SSL verification
-        # This is necessary on Windows systems with SSL certificate issues
-        # ================================================================
+        # monkey-patch requests to disable SSL verification
         _original_request = requests.Session.request
         def _patched_request(self, method, url, **kwargs):
-            kwargs['verify'] = False  # Disable SSL verification
+            kwargs['verify'] = False 
             return _original_request(self, method, url, **kwargs)
         requests.Session.request = _patched_request
         
-        # Also patch requests.get directly
         _original_get = requests.get
         def _patched_get(url, **kwargs):
             kwargs['verify'] = False
             return _original_get(url, **kwargs)
         requests.get = _patched_get
         
-        # Disable SSL warnings
+        # disable warnings
         try:
             import urllib3
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -1006,7 +989,7 @@ def generate_map_png(
         
         print("[MapGen] SSL verification disabled via requests monkey-patch")
         
-        # Calculate appropriate zoom level
+        # calculate zoom level
         center_lat = (extent_miny + extent_maxy) / 2.0
         width_m = abs(ext_x2 - ext_x1)
         height_m = abs(ext_y2 - ext_y1)
@@ -1018,7 +1001,7 @@ def generate_map_png(
         zoom = max(1, min(zoom, 18))
         print(f"[MapGen] Calculated zoom level: {zoom}")
         
-        # Tile URL mapping - all open source and free
+        # tile URL mapping - all open source and free
         tile_urls = {
             'osm': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
             'carto_light': 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
@@ -1034,7 +1017,7 @@ def generate_map_png(
         
         url = tile_urls.get(basemap_id, tile_urls.get('carto_light'))
         
-        # Try contextily first (it should now use patched requests)
+        # Try contextily 
         try:
             print(f"[MapGen] Trying contextily with patched requests: {url[:50]}...")
             ctx.add_basemap(
@@ -1050,7 +1033,7 @@ def generate_map_png(
         except Exception as e:
             print(f"[MapGen] Contextily failed: {str(e)[:80]}")
         
-        # Fallback: Manual tile fetching with explicit SSL disabled
+        # Fallback 1: Manual tile fetching 
         if not basemap_added:
             print("[MapGen] Trying manual tile fetching...")
             try:
@@ -1060,7 +1043,7 @@ def generate_map_png(
             except Exception as e:
                 print(f"[MapGen] Manual tile fetch failed: {e}")
         
-        # Ultimate fallback: try different tile servers
+        #  fallback 2: try different tile servers
         if not basemap_added:
             fallback_servers = ['osm', 'esri_gray', 'esri_worldstreet']
             for server_id in fallback_servers:
@@ -1093,7 +1076,7 @@ def generate_map_png(
     cbar = fig.colorbar(sm, cax=cax)
     cbar.set_label('Hail Size (cm)', fontsize=10)
     
-    # Scale bar (optional)
+    # Scale bar
     try:
         from matplotlib_scalebar.scalebar import ScaleBar
         ax.add_artist(ScaleBar(1, units='m', location='lower right', box_alpha=0.7, font_properties={'size': 9}))
@@ -1108,8 +1091,7 @@ def generate_map_png(
         ha='center', va='center',
         fontsize=12, fontweight='bold',
         arrowprops=dict(arrowstyle='-|>', lw=1.5, color='black'),
-        bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.8, linewidth=0),
-    )
+        bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.8, linewidth=0))
     
     ax.set_axis_off()
     

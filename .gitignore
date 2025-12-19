@@ -1,0 +1,32 @@
+#folders
+upload/
+output/
+
+#csv files
+*.csv
+*.xlsx
+*.zip
+*.geojson
+*.gpkg
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+#envs
+venv/
+.venv/
+env/
+.env_win/
+
+#envs
+.env
+.flaskenv
+instance/
+
+# OS & IDE FILES
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

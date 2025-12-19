@@ -1,4 +1,4 @@
-// Single-page progressive flow for upload -> configure -> process -> inline viewer
+// One page progressive flow: upload -> configure -> process -> inline viewer
 
 (function () {
   const root = document.getElementById('pageRoot');
@@ -134,37 +134,30 @@
         `</tr>`
     )).join('');
     
-    // Sync heights after populating
+    // sync heights after populating
     setTimeout(syncPreviewHeight, 50);
 }
 
-  // Sync Data Preview height to match left column
+  // data preview height 
   function syncPreviewHeight() {
     const leftColumn = document.getElementById('leftConfigColumn');
     const previewCard = document.getElementById('dataPreviewCard');
     const previewContainer = document.getElementById('previewTableContainer');
     
     if (leftColumn && previewCard && previewContainer) {
-        // Get the left column height
         const leftHeight = leftColumn.offsetHeight;
-        
-        // Set the preview card to match
         previewCard.style.height = leftHeight + 'px';
-        
-        // Calculate header height and set container height
         const header = previewCard.querySelector('.config-group-header');
         const headerHeight = header ? header.offsetHeight : 45;
         previewContainer.style.height = (leftHeight - headerHeight) + 'px';
     }
   }
 
-  // Call on config section show and window resize
+  // on config section show and window resize
   window.addEventListener('resize', syncPreviewHeight);
   document.getElementById('configSection').style.display = 'block';
   setTimeout(syncPreviewHeight, 100);
 
-// Also call after preview is populated - add this after showPreview() is called
-// Example: after your existing showPreview call, add:
 // syncPreviewHeight();
   function revealConfigSection() {
     const section = $('configSection');
@@ -182,7 +175,7 @@
       return;
     }
 
-    // Reset downstream UI for a fresh run
+    // reset downstream UI 
     const pb = $('processBtn');
     if (pb) pb.disabled = true;
     const resultsP = $('resultsPanel');
@@ -211,13 +204,13 @@
         meta: `${data.columns.length} columns · ~${data.row_count.toLocaleString()} rows`
       });
 
-      // Populate selects with suggestions
+      // populate selects with suggestions
       populateSelect('lonCol', data.columns, data.suggestions?.longitude);
       populateSelect('latCol', data.columns, data.suggestions?.latitude);
       populateSelect('hailCol', data.columns, data.suggestions?.hail_size);
       showPreview(data.columns, data.sample_data);
 
-      // Enable process button + reveal config section
+      // enable process button + reveal config section
       $('processBtn')?.classList.remove('opacity-50');
       $('processBtn').disabled = false;
       revealConfigSection();
@@ -292,7 +285,7 @@
     const panel = $('resultsPanel');
     if (panel) panel.style.display = 'block';
 
-    // Downloads
+    // downloads
     const pngLink = $('downloadPng');
     if (pngLink) {
       if (result?.footprint_png) {
@@ -312,7 +305,7 @@
       }
     }
 
-    // Summary
+      // summary
     const summary = $('resultsSummaryBody');
     if (summary) {
       const rows = [
@@ -331,7 +324,7 @@
       `).join('');
     }
 
-    // New-tab viewer link (keeps the old route available)
+    // viewer link 
     const newTab = $('openViewerNewTab');
     if (newTab) newTab.href = `/viewer/${jobId}`;
   }
@@ -341,11 +334,11 @@
     ui()?.reveal?.(section);
     $('viewerTitle').textContent = eventName || 'Interactive Viewer';
 
-    // Default basemap option
+    // default basemap option
     const bs = $('basemapSelect');
     if (bs && !bs.value) bs.value = 'carto_light';
 
-    // (Re)show loading overlay
+    // show loading overlay
     const loading = $('loading-overlay');
     if (loading) loading.style.display = 'flex';
 

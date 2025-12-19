@@ -1,8 +1,5 @@
-// Utility functions for Hail Footprint App
+// Utility functions
 
-/**
- * Format file size for display
- */
 function formatFileSize(bytes) {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -11,9 +8,7 @@ function formatFileSize(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-/**
- * Debounce function for performance
- */
+
 function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -26,9 +21,7 @@ function debounce(func, wait) {
     };
 }
 
-/**
- * Show toast notification
- */
+
 function showToast(message, type = 'info') {
     const mapped =
         type === 'error' ? 'danger' :
@@ -42,13 +35,10 @@ function showToast(message, type = 'info') {
         return;
     }
 
-    // Ultra-fallback if ui.js hasn't loaded yet
     console.log(`[${mapped}] ${message}`);
 }
 
-/**
- * Validate form inputs
- */
+
 function validateForm(formData) {
     const errors = [];
     
@@ -63,24 +53,19 @@ function validateForm(formData) {
     return errors;
 }
 
-/**
- * Color interpolation for legends
- */
 function interpolateColor(value, min, max, colorScale) {
     const normalized = (value - min) / (max - min);
     const index = Math.min(Math.floor(normalized * (colorScale.length - 1)), colorScale.length - 2);
     const t = (normalized * (colorScale.length - 1)) - index;
     
-    // Simple linear interpolation between colors
+    // linear interpolation 
     return colorScale[Math.round(index + t)];
 }
 
 // YlOrRd color scale
 const YlOrRd = ['#ffffb2', '#fed976', '#feb24c', '#fd8d3c', '#fc4e2a', '#e31a1c', '#b10026'];
 
-/**
- * Get color for hail value
- */
+
 function getHailColor(value, min, max) {
     const normalized = Math.max(0, Math.min(1, (value - min) / (max - min)));
     const index = Math.floor(normalized * (YlOrRd.length - 1));

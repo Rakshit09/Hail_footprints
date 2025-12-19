@@ -38,7 +38,7 @@
                 <!-- Centered Container -->
                 <div class="max-w-lg mx-auto">
                     
-                    <!-- File Pill (shown after upload) -->
+                    <!-- File Pill -->
                     <div id="filePill" class="hidden mb-5">
                         <div class="flex items-center justify-between gap-4 p-3 bg-green-50 border border-green-200 rounded-xl">
                             <div class="flex items-center gap-3">
@@ -130,7 +130,7 @@
         </div>
     </div>
 
-    <!-- Configuration Section (hidden until file uploaded) -->
+    <!-- Configuration Section -->
     <div id="configSection" class="config-section mt-0" style="display: none;">
         <div class="bg-white main-card mt-6">
             
@@ -147,13 +147,13 @@
                 </div>
             </div>
 
-            <!-- Config Content -->
+            <!-- configuration content -->
             <div class="p-8">
                 
                 <!-- Top Row: Settings + Data Preview -->
                 <div class="grid lg:grid-cols-12 gap-6 items-start">
                     
-                    <!-- Left: Settings Column -->
+                    <!-- left: settings column -->
                     <div class="lg:col-span-4 space-y-6" id="leftConfigColumn">
                         
                         <!-- Column Mapping -->
@@ -214,13 +214,12 @@
                         </div>
                     </div>
 
-                    <!-- Right: Data Preview -->
+                    <!-- right: data preview -->
                     <div class="lg:col-span-8" id="rightPreviewColumn">
                         <div class="config-group flex flex-col" id="dataPreviewCard">
                             <div class="config-group-header flex-shrink-0">
                                 <i class="bi bi-table text-brand-blue"></i>
                                 <span>Data Preview</span>
-                                <span class="ml-auto text-xs text-gray-400 font-mono">First 10 rows</span>
                             </div>
                             <div class="overflow-auto" id="previewTableContainer">
                                 <table class="w-full">
@@ -232,7 +231,7 @@
                     </div>
                 </div>
 
-                <!-- Processing Panel (Full Width) -->
+                <!-- processing panel (full width) -->
                 <div id="processingPanel" class="mt-6 processing-panel" style="display:none;">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-4">
@@ -249,7 +248,7 @@
                     </div>
                 </div>
 
-                <!-- Results Panel (Full Width) -->
+                <!-- results panel (full width) -->
                 <div id="resultsPanel" class="mt-6 results-panel" style="display:none;">
                     <div class="results-header flex items-center justify-between px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-100">
                         <div class="flex items-center gap-3">
@@ -276,7 +275,7 @@
                     
                     <div class="p-6">
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="resultsSummaryCards">
-                            <!-- Summary cards will be populated dynamically -->
+                            <!-- summary cards-- populated dynamically -->
                         </div>
                         
                         <!-- Detailed Summary Table -->
@@ -286,7 +285,7 @@
                             </div>
                             <table class="w-full text-sm">
                                 <tbody id="resultsSummaryBody" class="divide-y divide-gray-200">
-                                    <!-- Results rows will be populated here -->
+                                    <!-- results rows-- populated here -->
                                 </tbody>
                             </table>
                         </div>
@@ -296,11 +295,11 @@
         </div>
     </div>
 
-    <!-- Viewer Section (hidden until processing complete) -->
+    <!-- viewer section  -->
     <div id="viewerSection" class="viewer-section mt-0" style="display: none;">
         <div class="bg-white main-card mt-6">
             
-            <!-- Viewer Header -->
+            <!-- viewer header -->
             <div class="flex items-center justify-between px-8 py-5 border-b border-gray-100">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-xl bg-brand-dark flex items-center justify-center">
@@ -324,10 +323,10 @@
                 </div>
             </div>
 
-            <!-- Map Container -->
+            <!-- map container -->
             <div id="map-container" class="relative p-4">
                 
-                <!-- Loading Overlay -->
+                <!-- loading overlay -->
                 <div id="loading-overlay" class="absolute inset-4 z-[2000] flex items-center justify-center bg-white/95 rounded-2xl">
                     <div class="text-center">
                         <div class="w-12 h-12 mx-auto rounded-full border-3 border-gray-200 border-t-brand-blue animate-spin"></div>
@@ -336,10 +335,10 @@
                     </div>
                 </div>
 
-                <!-- Map -->
+                <!-- map -->
                 <div id="map" class="rounded-2xl"></div>
 
-                <!-- Quick Actions -->
+                <!-- quick actions -->
                 <div class="absolute left-8 top-8 z-[1000] flex flex-col gap-2">
                     <button class="map-btn" id="resetViewBtn" title="Reset View">
                         <i class="bi bi-arrows-fullscreen"></i>
@@ -352,7 +351,7 @@
                     </button>
                 </div>
 
-                <!-- Control Panel -->
+                <!-- control panel -->
                 <div id="controlPanel" class="absolute right-8 top-8 z-[1000] w-[260px] control-panel">
                     <div id="panelHeader" class="flex cursor-pointer items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/80">
                         <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-600">
@@ -365,7 +364,7 @@
                     </div>
 
                     <div id="panelContent" class="space-y-4 p-4">
-                        <!-- Layers -->
+                        <!-- layers -->
                         <div>
                             <div class="mb-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Layers</div>
                             <div class="space-y-2">
@@ -384,7 +383,7 @@
                             </div>
                         </div>
 
-                        <!-- Opacity -->
+                        <!-- opacity -->
                         <div class="border-t border-gray-100 pt-4">
                             <div class="flex items-center justify-between mb-2">
                                 <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Opacity</span>
@@ -393,7 +392,7 @@
                             <input id="opacitySlider" type="range" min="0.1" max="1" step="0.1" value="0.6" class="slider">
                         </div>
 
-                        <!-- Basemap -->
+                        <!-- basemap -->
                         <div class="border-t border-gray-100 pt-4">
                             <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Basemap</div>
                             <select id="basemapSelect" class="input-select text-sm">
@@ -421,7 +420,7 @@
                             </select>
                         </div>
 
-                        <!-- Coordinates -->
+                        <!-- coordinates -->
                         <div class="border-t border-gray-100 pt-3">
                             <div class="text-[10px] text-gray-400 font-mono" id="coordsDisplay">
                                 Move mouse over map
@@ -430,7 +429,7 @@
                     </div>
                 </div>
 
-                <!-- Legend -->
+                <!-- legend -->
                 <div class="absolute bottom-8 right-8 z-[1000] legend-box">
                     <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Hail Size (cm)</div>
                     <div class="h-2.5 w-36 rounded-full bg-gradient-to-r from-[#ffffb2] via-[#fd8d3c] to-[#bd0026]"></div>
@@ -440,7 +439,7 @@
                     </div>
                 </div>
 
-                <!-- Hover Info -->
+                <!-- hover info -->
                 <div class="absolute bottom-8 left-8 z-[1000] info-box">
                     <span class="text-xs text-gray-500">Hail:</span>
                     <span class="ml-1 text-xs font-semibold" id="hoverInfo">Hover over map</span>
@@ -452,7 +451,7 @@
     </div>
 </div>
 
-<!-- Hidden form data -->
+<!-- hidden form data -->
 <input type="hidden" id="uploadedFilename" value="">
 <input type="hidden" id="jobId" value="">
 {% endblock %}
