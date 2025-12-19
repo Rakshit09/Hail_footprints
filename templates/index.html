@@ -7,127 +7,199 @@
     <div class="bg-white main-card overflow-hidden">
         
         <!-- Header Section -->
-        <div class="header-gradient">
+        <header class="header-gradient">
             <!-- Top Bar -->
-            <div class="flex justify-between items-center px-10 py-6 border-b border-gray-100/50">
-                <div class="flex items-center gap-4">
-                    <div class="logo-container flex-shrink-0 p-2">
-                        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="h-[120px] w-auto object-contain" onerror="this.style.display='none'">
+            <div class="flex justify-between items-center px-8 lg:px-12 py-6">
+                <div class="flex items-center gap-6">
+                    <!-- Logo -->
+                    <div class="logo-container flex-shrink-0">
+                        <img 
+                            src="{{ url_for('static', filename='logo.png') }}" 
+                            alt="Hail Footprint Logo" 
+                            class="h-24 lg:h-32 w-auto object-contain transition-transform duration-300 hover:scale-105"
+                            onerror="this.style.display='none'"
+                        >
                     </div>
-                    <div class="h-8 w-px bg-gray-200"></div>
-                    <div>
-                        <h1 class="text-4xl font-bold text-brand-dark mb-4">Hail Footprint Generator</h1>
-                        <p class="text-xs text-gray-500">Generates hail footprint with geo-visualizations from csv data</p>
+                    
+                    <!-- Divider -->
+                    <div class="hidden sm:block h-14 w-px bg-gradient-to-b from-transparent via-gray-300 to-transparent"></div>
+                    
+                    <!-- Title Block -->
+                    <div class="space-y-2">
+                        <h1 class="text-2xl lg:text-3xl font-bold text-black">
+                            Hail Footprint Generator
+                        </h1>
+                        <p class="text-sm text-gray-500 flex items-center gap-2">
+                            <i class="bi bi-geo-alt text-brand-blue"></i>
+                            Generate hail footprints with geo-visualization from CSV data
+                        </p>
                     </div>
                 </div>
 
-                <div class="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-full">
-                    <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                    <span class="text-xs font-medium text-green-700">Ready</span>
+                <!-- Status Badge -->
+                <div class="flex items-center gap-2.5 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-full shadow-sm">
+                    <span class="relative flex h-2.5 w-2.5">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                    <span class="text-sm font-semibold text-emerald-700">Ready</span>
                 </div>
             </div>
-        </div>
+        </header>
 
-            <!-- Brand Divider -->
-            <div class="brand-divider h-1"></div>
+        <!-- Brand Divider -->
+        <div class="h-1 bg-gradient-to-r from-brand-blue via-brand-accent to-brand-blue"></div>
 
-            <!-- Upload Section -->
-            <div id="uploadSection" class="px-8 py-10">
-                <input class="hidden" type="file" id="fileInput" accept=".csv,.gpkg,.geojson,.shp">
+        <!-- Upload Section -->
+        <section id="uploadSection" class="px-6 lg:px-12 py-10 bg-gradient-to-b from-gray-50/80 to-white">
+    
+            <!-- Section Header - Left Aligned -->
+            <div class="flex items-center gap-4 mb-8">
+                <div class="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-brand-blue/20 to-brand-accent/20 shadow-sm">
+                    <i class="bi bi-database-add text-3xl text-brand-blue"></i>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-bold text-brand-dark tracking-wide">Data Upload</h2>
+                </div>
+            </div>
+        
+            <!-- Upload Area - Centered -->
+            <div class="max-w-2xl mx-auto">
                 
-                <!-- Centered Container -->
-                <div class="max-w-lg mx-auto">
-                    
-                    <!-- File Pill -->
-                    <div id="filePill" class="hidden mb-5">
-                        <div class="flex items-center justify-between gap-4 p-3 bg-green-50 border border-green-200 rounded-xl">
-                            <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-lg bg-green-100 flex items-center justify-center">
-                                    <i class="bi bi-file-earmark-check text-green-600"></i>
-                                </div>
-                                <div>
-                                    <div class="font-medium text-sm text-brand-dark" id="filePillName">Uploaded file</div>
-                                    <div class="text-xs text-gray-500 font-mono" id="filePillMeta"></div>
+                <!-- Hidden File Input -->
+                <input 
+                    type="file" 
+                    id="fileInput" 
+                    class="hidden" 
+                    accept=".csv,.gpkg,.geojson,.shp"
+                >
+
+                <!-- File Pill (shown after upload) -->
+                <div id="filePill" class="hidden mb-8 animate-fade-in">
+                    <div class="flex items-center justify-between gap-4 p-4 bg-white border border-emerald-200 rounded-2xl shadow-sm shadow-emerald-100">
+                        <div class="flex items-center gap-4">
+                            <!-- File Icon -->
+                            <div class="w-20 h-20 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-md shadow-emerald-200">
+                                <i class="bi bi-file-earmark-check text-white text-2xl"></i>
+                            </div>
+                            <!-- File Info -->
+                            <div>
+                                <div class="font-semibold text-gray-800" id="filePillName">filename.csv</div>
+                                <div class="flex items-center gap-2 text-sm text-gray-500">
+                                    <span id="filePillMeta" class="font-mono"></span>
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
+                                        <i class="bi bi-check-circle-fill text-[10px]"></i>
+                                        Ready
+                                    </span>
                                 </div>
                             </div>
-                            <button id="changeFileBtn" class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg font-medium text-xs text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all">
-                                <i class="bi bi-arrow-repeat text-xs"></i>
+                        </div>
+                        <!-- Actions -->
+                        <div class="flex items-center gap-2">
+                            <button 
+                                id="changeFileBtn" 
+                                class="flex items-center gap-2 px-4 py-2 bg-gray-100 border border-gray-200 rounded-xl font-medium text-sm text-gray-600 hover:bg-gray-200 hover:border-gray-300 transition-all duration-200"
+                            >
+                                <i class="bi bi-arrow-repeat"></i>
                                 Change
+                            </button>
+                            <button 
+                                id="removeFileBtn" 
+                                class="flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all duration-200"
+                                title="Remove file"
+                            >
+                                <i class="bi bi-trash3"></i>
                             </button>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Dropzone -->
-                    <div id="dropzone" class="dropzone group cursor-pointer bg-white border-2 border-dashed border-gray-200 hover:border-brand-blue/50 rounded-2xl transition-all duration-200">
-                        <div class="flex flex-col items-center py-8 px-6 text-center">
-                            
-                            <!-- Icon -->
-                            <div class="relative">
-                                <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-brand-blue to-brand-accent flex items-center justify-center text-white shadow-lg shadow-brand-blue/20 transition-transform group-hover:scale-110 group-hover:shadow-xl group-hover:shadow-brand-blue/30">
-                                    <i class="bi bi-cloud-arrow-up text-2xl"></i>
-                                </div>
-                                <div class="absolute -bottom-1 -right-1 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100">
-                                    <i class="bi bi-plus text-brand-blue text-sm"></i>
-                                </div>
+                <!-- Dropzone -->
+                <div 
+                    id="dropzone" 
+                    class="dropzone group cursor-pointer bg-white border-2 border-dashed border-gray-300 hover:border-brand-blue hover:bg-brand-blue/5 rounded-2xl transition-all duration-300 ease-out relative overflow-hidden"
+                >
+                    <div class="flex flex-col items-center py-12 px-8 text-center">
+                        
+                        <!-- Icon -->
+                        <div class="relative mb-5">
+                            <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-blue to-brand-accent flex items-center justify-center text-white shadow-xl shadow-brand-blue/25 transition-all duration-300 group-hover:scale-110 group-hover:shadow-2xl group-hover:shadow-brand-blue/30">
+                                <i class="bi bi-cloud-arrow-up text-4xl"></i>
                             </div>
-                            
-                            <!-- Text -->
-                            <div class="mt-4">
-                                <div class="text-base font-semibold text-brand-dark">
-                                    Drop your file here
-                                </div>
-                                <div class="mt-1 text-sm text-gray-500">
-                                    or <span class="text-brand-blue font-medium">browse</span> to choose
-                                </div>
+                            <div class="absolute -bottom-1 -right-1 w-7 h-7 bg-white rounded-full flex items-center justify-center shadow-lg border-2 border-gray-100">
+                                <i class="bi bi-plus-lg text-brand-blue font-bold"></i>
                             </div>
-                            
-                            <!-- Supported Formats -->
-                            <div class="mt-4 flex items-center gap-2">
-                                <div class="flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-lg">
-                                    <i class="bi bi-filetype-csv text-gray-500 text-xs"></i>
-                                    <span class="text-xs font-medium text-gray-600">CSV</span>
-                                </div>
-                                <div class="flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-lg">
-                                    <i class="bi bi-file-earmark text-gray-500 text-xs"></i>
-                                    <span class="text-xs font-medium text-gray-600">GPKG</span>
-                                </div>
-                                <div class="flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-lg">
-                                    <i class="bi bi-braces text-gray-500 text-xs"></i>
-                                    <span class="text-xs font-medium text-gray-600">GeoJSON</span>
-                                </div>
-                                <div class="flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-lg">
-                                    <i class="bi bi-file-earmark text-gray-500 text-xs"></i>
-                                    <span class="text-xs font-medium text-gray-600">SHP</span>
-                                </div>
+                        </div>
+                        
+                        <!-- Text -->
+                        <div class="mb-5">
+                            <h3 class="text-lg font-bold text-brand-dark mb-1">
+                                Drop your file here
+                            </h3>
+                            <p class="text-sm text-gray-500">
+                                or <span class="text-brand-blue font-semibold cursor-pointer hover:underline">browse</span> to choose from your computer
+                            </p>
+                        </div>
+                        
+                        <!-- Supported Formats -->
+                        <div class="flex flex-wrap items-center justify-center gap-2 mb-4">
+                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                                <i class="bi bi-filetype-csv text-gray-500"></i>
+                                <span class="text-xs font-semibold text-gray-600">CSV</span>
                             </div>
-                            
-                            <div class="mt-3 text-xs text-gray-400" id="fileHelp">
-                                Maximum file size: {{ max_upload_mb }}MB
+                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                                <i class="bi bi-file-earmark text-gray-500"></i>
+                                <span class="text-xs font-semibold text-gray-600">GPKG</span>
                             </div>
+                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                                <i class="bi bi-braces text-gray-500"></i>
+                                <span class="text-xs font-semibold text-gray-600">GeoJSON</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                                <i class="bi bi-file-earmark text-gray-500"></i>
+                                <span class="text-xs font-semibold text-gray-600">SHP</span>
+                            </div>
+                        </div>
+                        
+                        <div class="text-xs text-gray-400 flex items-center gap-1.5" id="fileHelp">
+                            <i class="bi bi-info-circle"></i>
+                            Maximum file size: {{ max_upload_mb }}MB
+                        </div>
 
-                            <!-- Upload Progress -->
-                            <div id="uploadProgressWrap" class="mt-5 hidden w-full">
-                                <div class="flex items-center justify-between text-xs text-gray-600 font-mono mb-2">
-                                    <span id="uploadProgressText">Processing…</span>
-                                    <span class="tabular-nums">—</span>
-                                </div>
-                                <div class="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
-                                    <div id="uploadProgressBar" class="h-full w-0 rounded-full bg-brand-blue transition-all duration-300"></div>
-                                </div>
+                        <!-- Upload Progress -->
+                        <div id="uploadProgressWrap" class="mt-6 hidden w-full max-w-xs">
+                            <div class="flex items-center justify-between text-xs text-gray-600 font-mono mb-2">
+                                <span id="uploadProgressText">Processing…</span>
+                                <span class="tabular-nums">—</span>
+                            </div>
+                            <div class="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                                <div id="uploadProgressBar" class="h-full w-0 rounded-full bg-gradient-to-r from-brand-blue to-brand-accent transition-all duration-300"></div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Upload Error -->
-                    <div id="uploadError" class="mt-4 hidden p-3 bg-red-50 border border-red-200 rounded-xl">
-                        <div class="flex items-start gap-2">
-                            <i class="bi bi-exclamation-triangle text-red-500 text-sm mt-0.5"></i>
-                            <div class="text-sm text-red-700"></div>
+                    <!-- Drag Active Overlay -->
+                    <div id="dragOverlay" class="hidden absolute inset-0 bg-brand-blue/10 border-2 border-brand-blue rounded-2xl flex items-center justify-center backdrop-blur-sm z-10">
+                        <div class="text-center">
+                            <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-brand-blue/20 flex items-center justify-center">
+                                <i class="bi bi-bullseye text-4xl text-brand-blue"></i>
+                            </div>
+                            <p class="font-bold text-brand-blue text-lg">Release to upload</p>
                         </div>
                     </div>
                 </div>
+
+                <!-- Upload Error -->
+                <div id="uploadError" class="mt-5 hidden animate-fade-in">
+                    <div class="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
+                        <div class="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                            <i class="bi bi-exclamation-triangle text-red-500"></i>
+                        </div>
+                        <div class="text-sm text-red-700"></div>
+                    </div>
+                </div>
             </div>
-        </div>
+        </section>
     </div>
 
     <!-- Configuration Section -->
@@ -147,13 +219,13 @@
                 </div>
             </div>
 
-            <!-- configuration content -->
+            <!-- Configuration Content -->
             <div class="p-8">
                 
                 <!-- Top Row: Settings + Data Preview -->
                 <div class="grid lg:grid-cols-12 gap-6 items-start">
                     
-                    <!-- left: settings column -->
+                    <!-- Left: Settings Column -->
                     <div class="lg:col-span-4 space-y-6" id="leftConfigColumn">
                         
                         <!-- Column Mapping -->
@@ -214,7 +286,7 @@
                         </div>
                     </div>
 
-                    <!-- right: data preview -->
+                    <!-- Right: Data Preview -->
                     <div class="lg:col-span-8" id="rightPreviewColumn">
                         <div class="config-group flex flex-col" id="dataPreviewCard">
                             <div class="config-group-header flex-shrink-0">
@@ -231,7 +303,7 @@
                     </div>
                 </div>
 
-                <!-- processing panel (full width) -->
+                <!-- Processing Panel (full width) -->
                 <div id="processingPanel" class="mt-6 processing-panel" style="display:none;">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-4">
@@ -248,7 +320,7 @@
                     </div>
                 </div>
 
-                <!-- results panel (full width) -->
+                <!-- Results Panel (full width) -->
                 <div id="resultsPanel" class="mt-6 results-panel" style="display:none;">
                     <div class="results-header flex items-center justify-between px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-100">
                         <div class="flex items-center gap-3">
@@ -275,7 +347,7 @@
                     
                     <div class="p-6">
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="resultsSummaryCards">
-                            <!-- summary cards-- populated dynamically -->
+                            <!-- Summary cards populated dynamically -->
                         </div>
                         
                         <!-- Detailed Summary Table -->
@@ -285,7 +357,7 @@
                             </div>
                             <table class="w-full text-sm">
                                 <tbody id="resultsSummaryBody" class="divide-y divide-gray-200">
-                                    <!-- results rows-- populated here -->
+                                    <!-- Results rows populated here -->
                                 </tbody>
                             </table>
                         </div>
@@ -295,11 +367,11 @@
         </div>
     </div>
 
-    <!-- viewer section  -->
+    <!-- Viewer Section -->
     <div id="viewerSection" class="viewer-section mt-0" style="display: none;">
         <div class="bg-white main-card mt-6">
             
-            <!-- viewer header -->
+            <!-- Viewer Header -->
             <div class="flex items-center justify-between px-8 py-5 border-b border-gray-100">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-xl bg-brand-dark flex items-center justify-center">
@@ -323,10 +395,10 @@
                 </div>
             </div>
 
-            <!-- map container -->
+            <!-- Map Container -->
             <div id="map-container" class="relative p-4">
                 
-                <!-- loading overlay -->
+                <!-- Loading Overlay -->
                 <div id="loading-overlay" class="absolute inset-4 z-[2000] flex items-center justify-center bg-white/95 rounded-2xl">
                     <div class="text-center">
                         <div class="w-12 h-12 mx-auto rounded-full border-3 border-gray-200 border-t-brand-blue animate-spin"></div>
@@ -335,10 +407,10 @@
                     </div>
                 </div>
 
-                <!-- map -->
+                <!-- Map -->
                 <div id="map" class="rounded-2xl"></div>
 
-                <!-- quick actions -->
+                <!-- Quick Actions -->
                 <div class="absolute left-8 top-8 z-[1000] flex flex-col gap-2">
                     <button class="map-btn" id="resetViewBtn" title="Reset View">
                         <i class="bi bi-arrows-fullscreen"></i>
@@ -351,7 +423,7 @@
                     </button>
                 </div>
 
-                <!-- control panel -->
+                <!-- Control Panel -->
                 <div id="controlPanel" class="absolute right-8 top-8 z-[1000] w-[260px] control-panel">
                     <div id="panelHeader" class="flex cursor-pointer items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/80">
                         <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-600">
@@ -364,7 +436,7 @@
                     </div>
 
                     <div id="panelContent" class="space-y-4 p-4">
-                        <!-- layers -->
+                        <!-- Layers -->
                         <div>
                             <div class="mb-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Layers</div>
                             <div class="space-y-2">
@@ -383,7 +455,7 @@
                             </div>
                         </div>
 
-                        <!-- opacity -->
+                        <!-- Opacity -->
                         <div class="border-t border-gray-100 pt-4">
                             <div class="flex items-center justify-between mb-2">
                                 <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Opacity</span>
@@ -392,7 +464,7 @@
                             <input id="opacitySlider" type="range" min="0.1" max="1" step="0.1" value="0.6" class="slider">
                         </div>
 
-                        <!-- basemap -->
+                        <!-- Basemap -->
                         <div class="border-t border-gray-100 pt-4">
                             <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Basemap</div>
                             <select id="basemapSelect" class="input-select text-sm">
@@ -420,7 +492,7 @@
                             </select>
                         </div>
 
-                        <!-- coordinates -->
+                        <!-- Coordinates -->
                         <div class="border-t border-gray-100 pt-3">
                             <div class="text-[10px] text-gray-400 font-mono" id="coordsDisplay">
                                 Move mouse over map
@@ -429,7 +501,7 @@
                     </div>
                 </div>
 
-                <!-- legend -->
+                <!-- Legend -->
                 <div class="absolute bottom-8 right-8 z-[1000] legend-box">
                     <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Hail Size (cm)</div>
                     <div class="h-2.5 w-36 rounded-full bg-gradient-to-r from-[#ffffb2] via-[#fd8d3c] to-[#bd0026]"></div>
@@ -439,7 +511,7 @@
                     </div>
                 </div>
 
-                <!-- hover info -->
+                <!-- Hover Info -->
                 <div class="absolute bottom-8 left-8 z-[1000] info-box">
                     <span class="text-xs text-gray-500">Hail:</span>
                     <span class="ml-1 text-xs font-semibold" id="hoverInfo">Hover over map</span>
@@ -451,7 +523,7 @@
     </div>
 </div>
 
-<!-- hidden form data -->
+<!-- Hidden Form Data -->
 <input type="hidden" id="uploadedFilename" value="">
 <input type="hidden" id="jobId" value="">
 {% endblock %}
