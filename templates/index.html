@@ -1,0 +1,419 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div id="pageRoot" data-max-upload-bytes="{{ max_upload_bytes }}" data-accepted-ext="{{ allowed_ext | join(',') }}">
+    
+    <!-- Main Card -->
+    <div class="bg-white main-card">
+        
+        <!-- Header Section -->
+        <div class="flex justify-between items-center px-20 py-16 header-gradient rounded-t-[20px]">
+            
+            <!-- Left: Logo -->
+            <div class="flex items-center gap-40">
+                <div class="logo-container">
+                    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="h-24 w-auto object-contain" onerror="this.style.display='none'">
+                </div>
+                <div>
+                    <h1 class="text-5xl font-bold text-brand-dark">Hail Footprint Generator</h1>
+                    <p class="text-sm text-gray-500 mt-1">Generates hail footprint with visualizations from csv data. No ArcGIS needed</p>
+                </div>
+            </div>
+
+            <!-- Right: Status -->
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-xl">
+                    <div class="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></div>
+                    <span class="text-sm font-medium text-green-700">System Ready</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Brand Divider -->
+        <div class="brand-divider h-1"></div>
+
+        <!-- Upload Section -->
+        <div id="uploadSection" class="p-8">
+            <input class="hidden" type="file" id="fileInput" accept=".csv,.gpkg,.geojson,.shp">
+            
+            <!-- Section Header -->
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-10 h-10 rounded-xl bg-brand-blue flex items-center justify-center">
+                    <i class="bi bi-cloud-arrow-up text-white text-lg"></i>
+                </div>
+                <div>
+                    <h2 class="text-3g font-semibold text-brand-dark">Upload Data</h2>
+                    <p class="text-sm text-gray-500">Upload your hail observation dataset to begin</p>
+                </div>
+            </div>
+
+            <!-- File Pill (shown after upload) -->
+            <div id="filePill" class="hidden mb-6">
+                <div class="flex items-center justify-between gap-4 p-4 bg-green-50 border border-green-200 rounded-xl">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                            <i class="bi bi-file-earmark-check text-green-600 text-lg"></i>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-brand-dark" id="filePillName">Uploaded file</div>
+                            <div class="text-xs text-gray-500 font-mono" id="filePillMeta"></div>
+                        </div>
+                    </div>
+                    <button id="changeFileBtn" class="action-btn flex items-center gap-2 px-4 py-2 bg-white border-2 border-gray-200 rounded-xl font-medium text-sm text-brand-dark">
+                        <i class="bi bi-arrow-repeat"></i>
+                        Change
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dropzone -->
+            <div id="dropzone" class="dropzone group cursor-pointer">
+                <div class="flex flex-col items-center py-16 text-center">
+                    <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-blue to-brand-accent flex items-center justify-center text-white shadow-lg transition-transform group-hover:scale-105">
+                        <i class="bi bi-cloud-arrow-up text-3xl"></i>
+                    </div>
+                    
+                    <div class="mt-6">
+                        <div class="text-xl font-semibold text-brand-dark">Drop your file here</div>
+                        <div class="mt-2 text-sm text-gray-500">or click to browse</div>
+                    </div>
+                    
+                    <div class="mt-4 text-xs text-gray-400 font-mono" id="fileHelp">
+                        {{ allowed_ext | join(' · ') | upper }} · Max {{ max_upload_mb }}MB
+                    </div>
+
+                    <!-- Upload Progress -->
+                    <div id="uploadProgressWrap" class="mt-6 hidden w-full max-w-sm">
+                        <div class="flex items-center justify-between text-xs text-gray-600 font-mono mb-2">
+                            <span id="uploadProgressText">Processing…</span>
+                            <span class="tabular-nums">—</span>
+                        </div>
+                        <div class="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                            <div id="uploadProgressBar" class="h-full w-0 rounded-full bg-brand-blue transition-all duration-300"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upload Error -->
+            <div id="uploadError" class="mt-4 hidden p-4 bg-red-50 border border-red-200 rounded-xl">
+                <div class="flex items-start gap-3">
+                    <i class="bi bi-exclamation-triangle text-red-500"></i>
+                    <div class="text-sm text-red-700"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Section (hidden until file uploaded) -->
+    <div id="configSection" class="config-section mt-0" style="display: none;">
+        <div class="bg-white main-card mt-6">
+            
+            <!-- Config Header -->
+            <div class="config-header px-8 py-5 border-b border-gray-100">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-brand-dark flex items-center justify-center">
+                        <i class="bi bi-sliders text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-brand-dark">Configuration</h2>
+                        <p class="text-sm text-gray-500">Map your columns and set processing parameters</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Config Content -->
+            <div class="p-8">
+                <div class="grid lg:grid-cols-12 gap-8">
+                    
+                    <!-- Left: Settings -->
+                    <div class="lg:col-span-4 space-y-6">
+                        
+                        <!-- Column Mapping -->
+                        <div class="config-group">
+                            <div class="config-group-header">
+                                <i class="bi bi-diagram-3 text-brand-blue"></i>
+                                <span>Column Mapping</span>
+                                <span class="ml-auto text-xs bg-brand-blue/10 text-brand-blue px-2 py-1 rounded-lg font-medium">Auto-detect</span>
+                            </div>
+                            <div class="space-y-4 p-5">
+                                <div>
+                                    <label class="input-label">Longitude <span class="text-red-500">*</span></label>
+                                    <select id="lonCol" class="input-select"></select>
+                                </div>
+                                <div>
+                                    <label class="input-label">Latitude <span class="text-red-500">*</span></label>
+                                    <select id="latCol" class="input-select"></select>
+                                </div>
+                                <div>
+                                    <label class="input-label">Hail Size <span class="text-red-500">*</span></label>
+                                    <select id="hailCol" class="input-select"></select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Parameters -->
+                        <div class="config-group">
+                            <div class="config-group-header">
+                                <i class="bi bi-gear text-brand-blue"></i>
+                                <span>Parameters</span>
+                            </div>
+                            <div class="space-y-4 p-5">
+                                <div>
+                                    <label class="input-label">Event Name <span class="text-red-500">*</span></label>
+                                    <input id="eventName" type="text" placeholder="Storm_20240115" class="input-field font-mono" />
+                                </div>
+                                
+                                <div class="grid grid-cols-3 gap-3">
+                                    <div>
+                                        <label class="input-label text-[10px]">Group (km)</label>
+                                        <input id="groupingThreshold" type="number" value="30" min="1" max="100" step="1" class="input-field font-mono text-center" />
+                                    </div>
+                                    <div>
+                                        <label class="input-label text-[10px]">Large buf</label>
+                                        <input id="largeBuffer" type="number" value="10" min="1" max="50" step="0.5" class="input-field font-mono text-center" />
+                                    </div>
+                                    <div>
+                                        <label class="input-label text-[10px]">Small buf</label>
+                                        <input id="smallBuffer" type="number" value="5" min="1" max="30" step="0.5" class="input-field font-mono text-center" />
+                                    </div>
+                                </div>
+
+                                <button id="processBtn" disabled class="submit-btn w-full text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 mt-4">
+                                    <i class="bi bi-play-fill"></i>
+                                    Generate Footprint
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Processing Panel -->
+                        <div id="processingPanel" class="processing-panel" style="display:none;">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-full border-2 border-amber-200 border-t-amber-600 animate-spin"></div>
+                                    <div>
+                                        <div class="font-semibold text-amber-800">Processing</div>
+                                        <div class="text-xs text-amber-600 font-mono" id="statusMessage">Initializing…</div>
+                                    </div>
+                                </div>
+                                <div class="text-2xl font-bold text-amber-700 font-mono" id="processingProgressLabel">0%</div>
+                            </div>
+                            <div class="mt-4 h-2 w-full overflow-hidden rounded-full bg-amber-200">
+                                <div id="processingProgressBar" class="h-full w-0 rounded-full bg-amber-500 transition-all duration-300"></div>
+                            </div>
+                        </div>
+
+                        <!-- Results Panel -->
+                        <div id="resultsPanel" class="results-panel" style="display:none;">
+                            <div class="results-header">
+                                <div class="flex items-center gap-2 text-green-700 font-semibold">
+                                    <i class="bi bi-check-circle-fill"></i>
+                                    <span>Results Ready</span>
+                                </div>
+                            </div>
+                            <div class="p-5">
+                                <div class="flex flex-wrap gap-2 mb-4">
+                                    <a id="downloadPng" class="action-btn hidden" download>
+                                        <i class="bi bi-image"></i> PNG
+                                    </a>
+                                    <a id="downloadGeoJson" class="action-btn hidden" download>
+                                        <i class="bi bi-filetype-json"></i> GeoJSON
+                                    </a>
+                                    <a href="#" id="openViewerNewTab" class="action-btn">
+                                        <i class="bi bi-box-arrow-up-right"></i> New Tab
+                                    </a>
+                                </div>
+                                
+                                <table class="w-full text-sm">
+                                    <tbody id="resultsSummaryBody" class="divide-y divide-gray-100"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Data Preview -->
+                    <div class="lg:col-span-8">
+                        <div class="config-group h-full">
+                            <div class="config-group-header">
+                                <i class="bi bi-table text-brand-blue"></i>
+                                <span>Data Preview</span>
+                                <span class="ml-auto text-xs text-gray-400 font-mono">First 5 rows</span>
+                            </div>
+                            <div class="max-h-[400px] overflow-auto">
+                                <table class="w-full">
+                                    <thead id="previewThead" class="sticky top-0 bg-gray-50 text-xs uppercase tracking-wider text-gray-500"></thead>
+                                    <tbody id="previewTbody" class="divide-y divide-gray-100 text-sm font-mono"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Viewer Section (hidden until processing complete) -->
+    <div id="viewerSection" class="viewer-section mt-0" style="display: none;">
+        <div class="bg-white main-card mt-6">
+            
+            <!-- Viewer Header -->
+            <div class="flex items-center justify-between px-8 py-5 border-b border-gray-100">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-brand-dark flex items-center justify-center">
+                        <i class="bi bi-map text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h2 id="viewerTitle" class="text-lg font-semibold text-brand-dark">Interactive Map</h2>
+                        <p class="text-sm text-gray-500">Pan, zoom, toggle layers, export</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <button id="exportCurrentViewBtn" class="action-btn">
+                        <i class="bi bi-camera"></i>
+                        HQ Export
+                    </button>
+                    <button id="exportScreenshotBtn" class="action-btn">
+                        <i class="bi bi-image"></i>
+                        Screenshot
+                    </button>
+                </div>
+            </div>
+
+            <!-- Map Container -->
+            <div id="map-container" class="relative p-4">
+                
+                <!-- Loading Overlay -->
+                <div id="loading-overlay" class="absolute inset-4 z-[2000] flex items-center justify-center bg-white/95 rounded-2xl">
+                    <div class="text-center">
+                        <div class="w-12 h-12 mx-auto rounded-full border-3 border-gray-200 border-t-brand-blue animate-spin"></div>
+                        <div class="mt-4 font-semibold text-brand-dark">Loading Map</div>
+                        <div class="text-xs text-gray-500">Fetching data…</div>
+                    </div>
+                </div>
+
+                <!-- Map -->
+                <div id="map" class="rounded-2xl"></div>
+
+                <!-- Quick Actions -->
+                <div class="absolute left-8 top-8 z-[1000] flex flex-col gap-2">
+                    <button class="map-btn" id="resetViewBtn" title="Reset View">
+                        <i class="bi bi-arrows-fullscreen"></i>
+                    </button>
+                    <button class="map-btn" id="toggleLayersBtn" title="Toggle Layers">
+                        <i class="bi bi-layers"></i>
+                    </button>
+                    <button class="map-btn" id="togglePointsBtn" title="Toggle Points">
+                        <i class="bi bi-geo-alt"></i>
+                    </button>
+                </div>
+
+                <!-- Control Panel -->
+                <div id="controlPanel" class="absolute right-8 top-8 z-[1000] w-[260px] control-panel">
+                    <div id="panelHeader" class="flex cursor-pointer items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/80">
+                        <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                            <i class="bi bi-sliders2"></i>
+                            Controls
+                        </div>
+                        <button id="panelToggle" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-200 transition">
+                            <i class="bi bi-chevron-right text-xs" id="toggleIcon"></i>
+                        </button>
+                    </div>
+
+                    <div id="panelContent" class="space-y-4 p-4">
+                        <!-- Layers -->
+                        <div>
+                            <div class="mb-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Layers</div>
+                            <div class="space-y-2">
+                                <label class="flex cursor-pointer items-center justify-between rounded-lg p-2 hover:bg-gray-50 transition">
+                                    <span class="text-sm">Hail intensity</span>
+                                    <input id="showFootprint" type="checkbox" checked class="checkbox">
+                                </label>
+                                <label class="flex cursor-pointer items-center justify-between rounded-lg p-2 hover:bg-gray-50 transition">
+                                    <span class="text-sm">Outline</span>
+                                    <input id="showOutline" type="checkbox" checked class="checkbox">
+                                </label>
+                                <label class="flex cursor-pointer items-center justify-between rounded-lg p-2 hover:bg-gray-50 transition">
+                                    <span class="text-sm">Points</span>
+                                    <input id="showPoints" type="checkbox" class="checkbox">
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Opacity -->
+                        <div class="border-t border-gray-100 pt-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Opacity</span>
+                                <span class="text-xs font-semibold text-gray-700" id="opacityValue">0.6</span>
+                            </div>
+                            <input id="opacitySlider" type="range" min="0.1" max="1" step="0.1" value="0.6" class="slider">
+                        </div>
+
+                        <!-- Basemap -->
+                        <div class="border-t border-gray-100 pt-4">
+                            <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Basemap</div>
+                            <select id="basemapSelect" class="input-select text-sm">
+                                <optgroup label="Light">
+                                    <option value="carto_light" selected>Carto Light</option>
+                                    <option value="carto_positron_nolabels">Carto (No Labels)</option>
+                                    <option value="osm">OpenStreetMap</option>
+                                    <option value="esri_gray">ESRI Gray</option>
+                                </optgroup>
+                                <optgroup label="Dark">
+                                    <option value="carto_dark">Carto Dark</option>
+                                    <option value="esri_darkgray">ESRI Dark Gray</option>
+                                </optgroup>
+                                <optgroup label="Detailed">
+                                    <option value="carto_voyager">Carto Voyager</option>
+                                    <option value="esri_worldstreet">ESRI Street</option>
+                                    <option value="esri_worldtopo">ESRI Topo</option>
+                                </optgroup>
+                                <optgroup label="Imagery">
+                                    <option value="esri_worldimagery">ESRI Satellite</option>
+                                </optgroup>
+                                <optgroup label="Other">
+                                    <option value="none">No basemap</option>
+                                </optgroup>
+                            </select>
+                        </div>
+
+                        <!-- Coordinates -->
+                        <div class="border-t border-gray-100 pt-3">
+                            <div class="text-[10px] text-gray-400 font-mono" id="coordsDisplay">
+                                Move mouse over map
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="absolute bottom-8 right-8 z-[1000] legend-box">
+                    <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Hail Size (cm)</div>
+                    <div class="h-2.5 w-36 rounded-full bg-gradient-to-r from-[#ffffb2] via-[#fd8d3c] to-[#bd0026]"></div>
+                    <div class="mt-1 flex justify-between text-[10px] text-gray-500 font-mono">
+                        <span id="legendMin">0</span>
+                        <span id="legendMax">1</span>
+                    </div>
+                </div>
+
+                <!-- Hover Info -->
+                <div class="absolute bottom-8 left-8 z-[1000] info-box">
+                    <span class="text-xs text-gray-500">Hail:</span>
+                    <span class="ml-1 text-xs font-semibold" id="hoverInfo">Hover over map</span>
+                </div>
+            </div>
+
+            <div id="errorContainer" class="px-8 pb-4"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden form data -->
+<input type="hidden" id="uploadedFilename" value="">
+<input type="hidden" id="jobId" value="">
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/viewer.js') }}"></script>
+<script src="{{ url_for('static', filename='js/index.js') }}"></script>
+{% endblock %}
