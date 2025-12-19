@@ -40,7 +40,7 @@ except ImportError:
 
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-# Optional Numba
+# Numba check
 try:
     from numba import njit, prange
     HAS_NUMBA = True
@@ -195,7 +195,7 @@ def idw_knn_optimized(
     if n_query == 0:
         return np.array([], dtype=np.float64)
     
-    # Ensure k doesn't exceed number of known points
+    # k doesn't exceed number of known points
     k = min(k, len(xy_known))
     if k < 1:
         k = 1
@@ -276,7 +276,7 @@ def heuristic_cell_size_m(points_xy: np.ndarray) -> float:
 
 
 def sanitize_value(val):
-    """Sanitize a single value for JSON serialization."""
+    """sanitize a single value for JSON serialization"""
     if val is None:
         return None
     if isinstance(val, (np.integer, np.int64, np.int32)):
@@ -323,7 +323,7 @@ def run_footprint(
     params: Params,
     progress_callback: Optional[Callable[[int, str], None]] = None
 ) -> Dict[str, any]:
-    """Main processing function with progress callbacks."""
+    """main processing function with progress callbacks"""
     
     def update_progress(pct: int, msg: str):
         if progress_callback:
@@ -334,9 +334,7 @@ def run_footprint(
     
     os.makedirs(params.out_folder, exist_ok=True)
     
-    # -------------------------
-    # Define output filenames
-    # -------------------------
+    # output filenames
     raster_filename = f"Fpt_Ras_{params.event_name}.tif"
     view_raster_filename = f"Fpt_Ras_{params.event_name}_HailSize.tif"
     poly_filename = f"Fpt_Pg_{params.event_name}.gpkg"
@@ -355,9 +353,7 @@ def run_footprint(
     points_geojson_path = os.path.join(params.out_folder, points_geojson_filename)
     out_png = os.path.join(params.out_folder, png_filename)
     
-    # -------------------------
-    # Read inputs
-    # -------------------------
+    # read inputs
     update_progress(5, "Reading input data...")
     
     if params.input_points.lower().endswith(".csv"):
@@ -370,21 +366,21 @@ def run_footprint(
     else:
         pts = read_vector(params.input_points)
     
-    # Ensure we have WGS84 input for points export
+    # WGS84 input for points export
     pts_4326_input = pts.to_crs(epsg=4326) if pts.crs and pts.crs.to_epsg() != 4326 else pts
     
-    # Project for processing
+    # project for processing
     pts_proj, crs_in, crs_work = ensure_projected_meters(pts)
     
     pts_proj[params.hail_field] = pd.to_numeric(pts_proj[params.hail_field], errors="coerce")
     pts_proj = pts_proj.dropna(subset=[params.hail_field]).copy()
     
     if len(pts_proj) == 0:
-        raise ValueError("No valid points with hail data found.")
+        raise ValueError("No valid points with hail data found")
     
     update_progress(10, f"Loaded {len(pts_proj)} valid points")
     
-    # Debug: Print coordinate ranges
+    # print coordinate ranges
     pts_debug = pts_proj.to_crs(epsg=4326)
     lon_range = (pts_debug.geometry.x.min(), pts_debug.geometry.x.max())
     lat_range = (pts_debug.geometry.y.min(), pts_debug.geometry.y.max())
@@ -396,16 +392,12 @@ def run_footprint(
         pts_proj.geometry.y.to_numpy()
     ])
     
-    # -------------------------
-    # Export points GeoJSON (in WGS84)
-    # -------------------------
+    # export points GeoJSON (in WGS84)
     pts_export = pts_proj.to_crs(epsg=4326)
     pts_export.to_file(points_geojson_path, driver="GeoJSON")
     print(f"  Saved points GeoJSON: {points_geojson_path}")
     
-    # -------------------------
     # DBSCAN clustering
-    # -------------------------
     update_progress(15, "Clustering points...")
     
     eps_m = params.grouping_threshold_km * 1000.0
@@ -423,9 +415,7 @@ def run_footprint(
     n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
     update_progress(20, f"Found {n_clusters} clusters")
     
-    # -------------------------
-    # Prepare raster grid
-    # -------------------------
+    # prepare raster grid
     cell_size = heuristic_cell_size_m(xy)
     print(f"  Cell size: {cell_size:.1f} m")
     
@@ -456,7 +446,7 @@ def run_footprint(
         group_data_list.append((gid, g_xy, g_v, buf_poly, n))
     
     if not group_data_list:
-        raise RuntimeError("No valid groups/buffers produced.")
+        raise RuntimeError("No valid groups/buffers produced")
     
     minx -= cell_size
     miny -= cell_size
@@ -470,9 +460,7 @@ def run_footprint(
     
     transform = from_origin(minx, maxy, cell_size, cell_size)
     
-    # -------------------------
-    # Process groups
-    # -------------------------
+    # process groups
     update_progress(25, f"Processing {len(group_data_list)} groups...")
     
     profile = {
@@ -559,12 +547,12 @@ def run_footprint(
             scaled
         )
     
-    # Write raster
+    # write raster
     update_progress(75, "Writing raster...")
     with rasterio.open(out_raster, "w", **profile) as dst:
         dst.write(raster_data, 1)
     
-    # View raster
+    # view raster
     with rasterio.open(out_raster) as src:
         a = src.read(1).astype(np.float32)
         a = np.where(a == 0, -9999.0, a / 10000.0)
@@ -575,9 +563,7 @@ def run_footprint(
         with rasterio.open(view_raster, "w", **profile2) as dst:
             dst.write(a, 1)
     
-    # -------------------------
-    # Polygonize
-    # -------------------------
+    # polygonize
     update_progress(80, "Polygonizing raster...")
     
     with rasterio.open(out_raster) as src:
@@ -592,9 +578,9 @@ def run_footprint(
                 vals.append(int(val))
     
     if not geoms:
-        raise RuntimeError("Polygonization produced no shapes.")
+        raise RuntimeError("Polygonization produced no shapes")
     
-    # Create GeoDataFrame in the working CRS
+        # create GeoDataFrame in the working CRS
     fpt = gpd.GeoDataFrame(
         {
             "gridcode": vals,
@@ -618,9 +604,7 @@ def run_footprint(
     fpt_4326.to_file(out_geojson, driver="GeoJSON")
     print(f"  Saved footprint GeoJSON: {out_geojson}")
     
-    # -------------------------
-    # Footprint (dissolved)
-    # -------------------------
+    # footprint (dissolved)
     min_hail_for_footprint = 0.1
     footprint = fpt_4326.loc[fpt_4326["Hail_Size"] >= min_hail_for_footprint].copy()
     
@@ -634,7 +618,7 @@ def run_footprint(
         footprint_dissolved.to_file(footprint_geojson, driver="GeoJSON")
         print(f"  Saved dissolved footprint GeoJSON: {footprint_geojson}")
         
-        # PNG export
+        # png export
         try:
             export_client_png(
                 fpt_out=fpt_out,
@@ -649,23 +633,21 @@ def run_footprint(
             import traceback
             traceback.print_exc()
     else:
-        # Create empty footprint file
+        # create empty footprint file
         footprint_dissolved = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
         footprint_dissolved.to_file(footprint_geojson, driver="GeoJSON")
     
-    # -------------------------
-    # Calculate bounds in WGS84
-    # -------------------------
+    # calculate bounds in WGS84
     bounds_arr = fpt_4326.total_bounds  # [minx, miny, maxx, maxy]
     
-    # Validate bounds
+    # validate bounds
     if any(not np.isfinite(b) for b in bounds_arr):
         print("Warning: Invalid bounds detected, using point extent")
         bounds_arr = pts_export.total_bounds
     
     bounds = [float(b) for b in bounds_arr]  # [minx, miny, maxx, maxy] = [lon_min, lat_min, lon_max, lat_max]
     
-    # Center: [lat, lon] for Leaflet
+    # center: [lat, lon] for Leaflet
     center_lat = (bounds[1] + bounds[3]) / 2
     center_lon = (bounds[0] + bounds[2]) / 2
     center = [center_lat, center_lon]
@@ -673,14 +655,14 @@ def run_footprint(
     print(f"  Bounds (lon/lat): [{bounds[0]:.4f}, {bounds[1]:.4f}, {bounds[2]:.4f}, {bounds[3]:.4f}]")
     print(f"  Center (lat/lon): [{center[0]:.4f}, {center[1]:.4f}]")
     
-    # Compute stats
+    # compute stats
     hail_min = float(fpt_4326["Hail_Size"].min())
     hail_max = float(fpt_4326["Hail_Size"].max())
     
     dt = time.time() - t0
     update_progress(100, f"Completed in {dt:.1f}s")
     
-    # Return filenames only
+    # return filenames only
     return {
         "raster": raster_filename,
         "view_raster": view_raster_filename,
@@ -709,7 +691,7 @@ def export_client_png(
     event_name: str,
     cmap: str = "YlOrRd"
 ) -> None:
-    """Export publication-ready PNG map."""
+    """export publication-ready png map"""
     fpt_3857 = fpt_out.to_crs(epsg=3857)
     foot_3857 = footprint.to_crs(epsg=3857)
     

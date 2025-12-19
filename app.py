@@ -19,9 +19,8 @@ from werkzeug.utils import secure_filename
 from config import Config
 from processing.footprint import Params, run_footprint, get_processing_status
 
-    # SSL Certificate Fix for Windows
 try:
-    # disable SSL verification globally for requests library
+    # disable SSL verification 
     os.environ['CURL_CA_BUNDLE'] = ''
     os.environ['REQUESTS_CA_BUNDLE'] = ''
     
@@ -54,21 +53,21 @@ def guess_column_type(col_name: str) -> str:
     
     col_lower = col_name.lower().strip()
     
-    # --- 1. LATITUDE ---
+    # LATITUDE 
     if col_lower in ['lat', 'latitude', 'y', 'y_coord', 'lat_dd', 'slat', 'start_lat']:
         return 'latitude'
         
     if re.search(r'(^|[\s_])(lat|latitude)([\s_]|$)', col_lower):
         return 'latitude'
     
-    # --- 2. LONGITUDE ---
+    # LONGITUDE 
     if col_lower in ['lon', 'long', 'lng', 'longitude', 'x', 'x_coord', 'lon_dd', 'slon', 'start_lon']:
         return 'longitude'
         
     if re.search(r'(^|[\s_])(lon|lng|long|longitude)([\s_]|$)', col_lower):
         return 'longitude'
     
-    # --- 3. HAIL SIZE ---
+    # HAIL SIZE 
     if col_lower in ['max_hail_diameter','max_size', 'hail_size', 'hailsize', 'maximum_hail_size', 'hail', 'size', 'diameter', 'diam', 'mag', 'magnitude', 'hail_size']:
         return 'hail_size'
     
