@@ -5,6 +5,109 @@
 {% block extra_css %}
 <style>
   #map { height: calc(100vh - 280px); min-height: 600px; }
+  
+  /* Control panel styling */
+  .control-section {
+    border-top: 1px solid #f3f4f6;
+    padding-top: 1rem;
+  }
+  .control-section:first-child {
+    border-top: none;
+    padding-top: 0;
+  }
+  
+  .section-header {
+    margin-bottom: 0.5rem;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #9ca3af;
+  }
+  
+  /* Nested options - visible by default, JS controls display */
+  .nested-options {
+    margin-left: 1rem;
+    padding-left: 0.5rem;
+    border-left: 2px solid #e5e7eb;
+    margin-top: 0.5rem;
+  }
+  
+  /* Color map preview gradient */
+  .colormap-preview {
+    height: 14px;
+    border-radius: 4px;
+    margin-top: 6px;
+    border: 1px solid rgba(0,0,0,0.1);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+  }
+  
+  /* Legend gradient */
+  #legendGradient {
+    height: 10px;
+    border-radius: 9999px;
+    width: 100%;
+  }
+  
+  /* Slider styling */
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: #e5e7eb;
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #3b82f6;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  
+  /* Checkbox styling */
+  .checkbox {
+    width: 1rem;
+    height: 1rem;
+    border-radius: 0.25rem;
+    accent-color: #3b82f6;
+  }
+  
+  /* Layer item */
+  .layer-item {
+    display: flex;
+    cursor: pointer;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+    transition: background-color 0.15s;
+  }
+  .layer-item:hover {
+    background-color: #f9fafb;
+  }
+  
+  /* Option row */
+  .option-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+  }
+  .option-label {
+    font-size: 0.75rem;
+    color: #4b5563;
+  }
+  .option-label-sm {
+    font-size: 0.75rem;
+    color: #6b7280;
+  }
 </style>
 {% endblock %}
 
@@ -43,7 +146,8 @@
                 Screenshot
             </button>
             {% if result.geojson %}
-            <a class="submit-btn text-white font-semibold px-5 py-2.5 rounded-xl flex items-center gap-2" href="{{ url_for('serve_output', job_id=job_id, filename=result.geojson) }}" download>
+            <a class="submit-btn text-white font-semibold px-5 py-2.5 rounded-xl flex items-center gap-2" 
+               href="{{ url_for('serve_output', job_id=job_id, filename=result.geojson) }}" download>
                 <i class="bi bi-filetype-json"></i>
                 GeoJSON
             </a>
@@ -89,7 +193,9 @@
         </div>
 
         <!-- Control Panel -->
-        <div id="controlPanel" class="absolute right-8 top-8 z-[1000] w-[260px] control-panel">
+        <div id="controlPanel" class="absolute right-8 top-8 z-[2000] w-[280px] control-panel">
+
+            <!-- Panel Header -->
             <div id="panelHeader" class="flex cursor-pointer items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/80">
                 <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-600">
                     <i class="bi bi-sliders2"></i>
@@ -100,39 +206,157 @@
                 </button>
             </div>
 
+            <!-- Panel Content -->
             <div id="panelContent" class="space-y-4 p-4">
-                <!-- Layers -->
-                <div>
-                    <div class="mb-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Layers</div>
-                    <div class="space-y-2">
-                        <label class="flex cursor-pointer items-center justify-between rounded-lg p-2 hover:bg-gray-50 transition">
-                            <span class="text-sm">Hail intensity</span>
+                
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- LAYERS SECTION -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <div class="control-section">
+                    <div class="section-header">Layers</div>
+                    <div class="space-y-1">
+                        
+                        <!-- ─────────────────────────────────────────────────────── -->
+                        <!-- Hail Intensity Layer -->
+                        <!-- ─────────────────────────────────────────────────────── -->
+                        <label class="layer-item">
+                            <span class="text-sm font-medium text-gray-700">Hail intensity</span>
                             <input id="showFootprint" type="checkbox" checked class="checkbox">
                         </label>
-                        <label class="flex cursor-pointer items-center justify-between rounded-lg p-2 hover:bg-gray-50 transition">
-                            <span class="text-sm">Outline</span>
+                        
+                        <!-- Footprint Options (nested under Hail intensity) -->
+                        <div id="footprintOptions" class="nested-options space-y-2">
+                            
+                            <!-- Display Mode Selector -->
+                            <div class="option-row">
+                                <span class="option-label">Display</span>
+                                <select id="displayMode" class="w-28 px-2 py-1 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="cells">Grid Cells</option>
+                                    <option value="continuous">Continuous</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Cell Options (visible when displayMode is "cells") -->
+                            <div id="cellOptions" class="space-y-1">
+                                <label class="option-row cursor-pointer">
+                                    <span class="option-label">Cell borders</span>
+                                    <input id="showCellBorders" type="checkbox" checked class="checkbox">
+                                </label>
+                                <!-- Cell Border Sub-options -->
+                                <div id="cellBorderOptions" class="pl-2 space-y-1">
+                                    <div class="option-row">
+                                        <span class="option-label-sm">Border width</span>
+                                        <input id="cellBorderWidth" type="number" min="0.1" max="3" step="0.1" value="0.5" 
+                                               class="w-16 px-2 py-1 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                    </div>
+                                    <div class="option-row">
+                                        <span class="option-label-sm">Border color</span>
+                                        <input id="cellBorderColor" type="color" value="#666666" 
+                                               class="w-16 h-7 border border-gray-300 rounded cursor-pointer">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Continuous Options (visible when displayMode is "continuous") -->
+                            <div id="continuousOptions" class="space-y-1" style="display: none;">
+                                <div class="option-row">
+                                    <span class="option-label">Smoothness</span>
+                                    <input id="smoothnessLevel" type="range" min="1" max="5" value="3" class="w-20 cursor-pointer">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- ─────────────────────────────────────────────────────── -->
+                        <!-- Outline Layer -->
+                        <!-- ─────────────────────────────────────────────────────── -->
+                        <label class="layer-item">
+                            <span class="text-sm font-medium text-gray-700">Outline</span>
                             <input id="showOutline" type="checkbox" checked class="checkbox">
                         </label>
-                        <label class="flex cursor-pointer items-center justify-between rounded-lg p-2 hover:bg-gray-50 transition">
-                            <span class="text-sm">Points</span>
+                        
+                        <!-- Outline Options (nested under Outline) -->
+                        <div id="outlineOptions" class="nested-options space-y-1">
+                            <div class="option-row">
+                                <span class="option-label">Width</span>
+                                <input id="outlineWidth" type="number" min="0.5" max="10" step="0.5" value="2.5" 
+                                       class="w-16 px-2 py-1 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+                            </div>
+                            <div class="option-row">
+                                <span class="option-label">Color</span>
+                                <input id="outlineColor" type="color" value="#000000" 
+                                       class="w-16 h-7 border border-gray-300 rounded cursor-pointer">
+                            </div>
+                        </div>
+                        
+                        <!-- ─────────────────────────────────────────────────────── -->
+                        <!-- Points Layer -->
+                        <!-- ─────────────────────────────────────────────────────── -->
+                        <label class="layer-item">
+                            <span class="text-sm font-medium text-gray-700">Points</span>
                             <input id="showPoints" type="checkbox" class="checkbox">
                         </label>
                     </div>
                 </div>
 
-                <!-- Opacity -->
-                <div class="border-t border-gray-100 pt-4">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Opacity</span>
-                        <span class="text-xs font-semibold text-gray-700" id="opacityValue">0.6</span>
-                    </div>
-                    <input id="opacitySlider" type="range" min="0.1" max="1" step="0.1" value="0.6" class="slider">
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- COLOR MAP SECTION -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <div class="control-section">
+                    <div class="section-header">Color Map</div>
+                    <select id="colorMapSelect" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <optgroup label="Sequential">
+                            <option value="ylOrRd" selected>Yellow-Orange-Red</option>
+                            <option value="orRd">Orange-Red</option>
+                            <option value="reds">Reds</option>
+                            <option value="ylGnBu">Yellow-Green-Blue</option>
+                            <option value="blues">Blues</option>
+                            <option value="greens">Greens</option>
+                            <option value="purples">Purples</option>
+                            <option value="greys">Greys</option>
+                        </optgroup>
+                        <optgroup label="Perceptually Uniform">
+                            <option value="viridis">Viridis</option>
+                            <option value="plasma">Plasma</option>
+                            <option value="inferno">Inferno</option>
+                            <option value="magma">Magma</option>
+                            <option value="cividis">Cividis</option>
+                            <option value="turbo">Turbo</option>
+                        </optgroup>
+                        <optgroup label="Diverging">
+                            <option value="rdYlGn">Red-Yellow-Green</option>
+                            <option value="rdYlBu">Red-Yellow-Blue</option>
+                            <option value="rdBu">Red-Blue</option>
+                            <option value="spectral">Spectral</option>
+                            <option value="coolwarm">Cool-Warm</option>
+                            <option value="bwr">Blue-White-Red</option>
+                        </optgroup>
+                        <optgroup label="Classic">
+                            <option value="jet">Jet</option>
+                            <option value="rainbow">Rainbow</option>
+                            <option value="hot">Hot</option>
+                            <option value="cool">Cool</option>
+                        </optgroup>
+                    </select>
+                    <div id="colorMapPreview" class="colormap-preview"></div>
                 </div>
 
-                <!-- Basemap -->
-                <div class="border-t border-gray-100 pt-4">
-                    <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Basemap</div>
-                    <select id="basemapSelect" class="input-select text-sm">
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- OPACITY SECTION -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <div class="control-section">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="section-header" style="margin-bottom: 0;">Opacity</span>
+                        <span class="text-xs font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded" id="opacityValue">0.6</span>
+                    </div>
+                    <input id="opacitySlider" type="range" min="0.1" max="1" step="0.1" value="0.6">
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- BASEMAP SECTION -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <div class="control-section">
+                    <div class="section-header">Basemap</div>
+                    <select id="basemapSelect" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <optgroup label="Light">
                             <option value="carto_light" selected>Carto Light</option>
                             <option value="carto_positron_nolabels">Carto (No Labels)</option>
@@ -157,8 +381,10 @@
                     </select>
                 </div>
 
-                <!-- Coordinates -->
-                <div class="border-t border-gray-100 pt-3">
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- COORDINATES DISPLAY -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <div class="control-section">
                     <div class="text-[10px] text-gray-400 font-mono" id="coordsDisplay">
                         Move mouse over map
                     </div>
@@ -169,7 +395,7 @@
         <!-- Legend -->
         <div class="absolute bottom-8 right-8 z-[1000] legend-box">
             <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Hail Size (cm)</div>
-            <div class="h-2.5 w-36 rounded-full bg-gradient-to-r from-[#ffffb2] via-[#fd8d3c] to-[#bd0026]"></div>
+            <div id="legendGradient" class="w-36 rounded-full"></div>
             <div class="mt-1 flex justify-between text-[10px] text-gray-500 font-mono">
                 <span id="legendMin">0</span>
                 <span id="legendMax">1</span>

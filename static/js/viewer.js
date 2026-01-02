@@ -1,9 +1,10 @@
 // Inline-capable Leaflet viewer for a completed processing job.
-// Usage:
-//   window.HailViewer.init({ jobId, eventName, result })
-
 (function () {
-  function el(id) { return document.getElementById(id); }
+  "use strict";
+  
+  function el(id) { 
+    return document.getElementById(id);
+  }
 
   function safeNum(x, fallback) {
     const n = Number(x);
@@ -17,7 +18,7 @@
       return;
     }
     container.innerHTML = `
-      <div class="mt-4 rounded-2xl border border-rose-200/70 bg-rose-50 px-4 py-3 text-rose-900 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-100">
+      <div class="mt-4 rounded-2xl border border-rose-200/70 bg-rose-50 px-4 py-3 text-rose-900">
         <div class="flex items-start gap-3">
           <div class="mt-0.5 text-lg"><i class="bi bi-x-circle"></i></div>
           <div class="min-w-0">
@@ -29,15 +30,338 @@
     `;
   }
 
-  async function ensureDomToImage() {
-    if (window.domtoimage) return true;
-    return new Promise((resolve) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js';
-      s.onload = () => resolve(true);
-      s.onerror = () => resolve(false);
-      document.head.appendChild(s);
-    });
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COLOR MAPS DEFINITIONS
+  // ═══════════════════════════════════════════════════════════════════════════
+  const COLOR_MAPS = {
+    ylOrRd: {
+      name: 'Yellow-Orange-Red',
+      stops: [
+        { pos: 0.0, color: [255, 255, 178] },
+        { pos: 0.17, color: [254, 217, 118] },
+        { pos: 0.33, color: [254, 178, 76] },
+        { pos: 0.5, color: [253, 141, 60] },
+        { pos: 0.67, color: [252, 78, 42] },
+        { pos: 0.83, color: [227, 26, 28] },
+        { pos: 1.0, color: [189, 0, 38] }
+      ]
+    },
+    viridis: {
+      name: 'Viridis',
+      stops: [
+        { pos: 0.0, color: [68, 1, 84] },
+        { pos: 0.17, color: [72, 40, 120] },
+        { pos: 0.33, color: [62, 74, 137] },
+        { pos: 0.5, color: [49, 104, 142] },
+        { pos: 0.67, color: [38, 130, 142] },
+        { pos: 0.83, color: [31, 158, 137] },
+        { pos: 1.0, color: [253, 231, 37] }
+      ]
+    },
+    plasma: {
+      name: 'Plasma',
+      stops: [
+        { pos: 0.0, color: [13, 8, 135] },
+        { pos: 0.17, color: [126, 3, 168] },
+        { pos: 0.33, color: [204, 71, 120] },
+        { pos: 0.5, color: [248, 149, 64] },
+        { pos: 0.67, color: [255, 204, 92] },
+        { pos: 0.83, color: [252, 255, 164] },
+        { pos: 1.0, color: [240, 249, 33] }
+      ]
+    },
+    inferno: {
+      name: 'Inferno',
+      stops: [
+        { pos: 0.0, color: [0, 0, 4] },
+        { pos: 0.17, color: [40, 11, 84] },
+        { pos: 0.33, color: [101, 21, 110] },
+        { pos: 0.5, color: [159, 42, 99] },
+        { pos: 0.67, color: [212, 72, 66] },
+        { pos: 0.83, color: [245, 125, 21] },
+        { pos: 1.0, color: [252, 255, 164] }
+      ]
+    },
+    turbo: {
+      name: 'Turbo',
+      stops: [
+        { pos: 0.0, color: [48, 18, 59] },
+        { pos: 0.17, color: [65, 68, 214] },
+        { pos: 0.33, color: [35, 139, 251] },
+        { pos: 0.5, color: [18, 203, 163] },
+        { pos: 0.67, color: [139, 229, 63] },
+        { pos: 0.83, color: [243, 186, 47] },
+        { pos: 1.0, color: [122, 4, 3] }
+      ]
+    },
+    blues: {
+      name: 'Blues',
+      stops: [
+        { pos: 0.0, color: [247, 251, 255] },
+        { pos: 0.17, color: [222, 235, 247] },
+        { pos: 0.33, color: [198, 219, 239] },
+        { pos: 0.5, color: [158, 202, 225] },
+        { pos: 0.67, color: [107, 174, 214] },
+        { pos: 0.83, color: [49, 130, 189] },
+        { pos: 1.0, color: [8, 81, 156] }
+      ]
+    },
+    greens: {
+      name: 'Greens',
+      stops: [
+        { pos: 0.0, color: [247, 252, 245] },
+        { pos: 0.17, color: [229, 245, 224] },
+        { pos: 0.33, color: [199, 233, 192] },
+        { pos: 0.5, color: [161, 217, 155] },
+        { pos: 0.67, color: [116, 196, 118] },
+        { pos: 0.83, color: [49, 163, 84] },
+        { pos: 1.0, color: [0, 109, 44] }
+      ]
+    },
+    rdYlGn: {
+      name: 'Red-Yellow-Green',
+      stops: [
+        { pos: 0.0, color: [0, 104, 55] },
+        { pos: 0.17, color: [26, 152, 80] },
+        { pos: 0.33, color: [145, 207, 96] },
+        { pos: 0.5, color: [255, 255, 191] },
+        { pos: 0.67, color: [252, 141, 89] },
+        { pos: 0.83, color: [215, 48, 39] },
+        { pos: 1.0, color: [165, 0, 38] }
+      ]
+    },
+    spectral: {
+      name: 'Spectral',
+      stops: [
+        { pos: 0.0, color: [94, 79, 162] },
+        { pos: 0.17, color: [50, 136, 189] },
+        { pos: 0.33, color: [102, 194, 165] },
+        { pos: 0.5, color: [254, 254, 189] },
+        { pos: 0.67, color: [254, 224, 139] },
+        { pos: 0.83, color: [252, 141, 89] },
+        { pos: 1.0, color: [213, 62, 79] }
+      ]
+    },
+    coolwarm: {
+      name: 'Cool-Warm',
+      stops: [
+        { pos: 0.0, color: [59, 76, 192] },
+        { pos: 0.17, color: [98, 130, 234] },
+        { pos: 0.33, color: [141, 176, 254] },
+        { pos: 0.5, color: [221, 221, 221] },
+        { pos: 0.67, color: [245, 152, 130] },
+        { pos: 0.83, color: [219, 96, 76] },
+        { pos: 1.0, color: [180, 4, 38] }
+      ]
+    },
+    hot: {
+      name: 'Hot',
+      stops: [
+        { pos: 0.0, color: [10, 0, 0] },
+        { pos: 0.17, color: [128, 0, 0] },
+        { pos: 0.33, color: [230, 0, 0] },
+        { pos: 0.5, color: [255, 128, 0] },
+        { pos: 0.67, color: [255, 230, 0] },
+        { pos: 0.83, color: [255, 255, 128] },
+        { pos: 1.0, color: [255, 255, 255] }
+      ]
+    },
+    jet: {
+      name: 'Jet',
+      stops: [
+        { pos: 0.0, color: [0, 0, 127] },
+        { pos: 0.17, color: [0, 0, 255] },
+        { pos: 0.33, color: [0, 255, 255] },
+        { pos: 0.5, color: [128, 255, 0] },
+        { pos: 0.67, color: [255, 255, 0] },
+        { pos: 0.83, color: [255, 128, 0] },
+        { pos: 1.0, color: [127, 0, 0] }
+      ]
+    }
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INJECT CSS
+  // ═══════════════════════════════════════════════════════════════════════════
+  function injectStyles() {
+    if (document.getElementById('hail-viewer-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'hail-viewer-styles';
+    style.innerHTML = `
+      /* Canvas smooth layer */
+      .hf-smooth-canvas {
+        image-rendering: auto;
+        image-rendering: smooth;
+        image-rendering: high-quality;
+      }
+      
+      /* Color map preview gradient */
+      .colormap-preview {
+        height: 12px;
+        border-radius: 3px;
+        margin-top: 4px;
+        border: 1px solid rgba(0,0,0,0.15);
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INJECT MISSING ELEMENTS
+  // ═══════════════════════════════════════════════════════════════════════════
+  function ensureFootprintOptionsExist() {
+    if (document.getElementById('footprintOptions')) return true;
+    
+    const showFootprintCheckbox = document.getElementById('showFootprint');
+    if (!showFootprintCheckbox) return false;
+    
+    const label = showFootprintCheckbox.closest('label');
+    if (!label) return false;
+    
+    const optionsDiv = document.createElement('div');
+    optionsDiv.id = 'footprintOptions';
+    optionsDiv.className = 'ml-4 space-y-2 pl-2 border-l-2 border-gray-200 mt-2';
+    optionsDiv.innerHTML = `
+      <div class="flex items-center justify-between py-1">
+        <span class="text-xs text-gray-600">Display</span>
+        <select id="displayMode" class="w-28 px-2 py-1 text-xs border border-gray-300 rounded bg-white">
+          <option value="cells">Grid Cells</option>
+          <option value="continuous">Continuous</option>
+        </select>
+      </div>
+      <div id="cellOptions">
+        <label class="flex cursor-pointer items-center justify-between py-1">
+          <span class="text-xs text-gray-600">Cell borders</span>
+          <input id="showCellBorders" type="checkbox" checked class="checkbox">
+        </label>
+        <div id="cellBorderOptions">
+          <div class="flex items-center justify-between py-1">
+            <span class="text-xs text-gray-600">Border width</span>
+            <input id="cellBorderWidth" type="number" min="0.1" max="3" step="0.1" value="0.5" 
+                   class="w-16 px-2 py-1 text-xs border border-gray-300 rounded bg-white">
+          </div>
+          <div class="flex items-center justify-between py-1">
+            <span class="text-xs text-gray-600">Border color</span>
+            <input id="cellBorderColor" type="color" value="#666666" 
+                   class="w-16 h-7 border border-gray-300 rounded cursor-pointer">
+          </div>
+        </div>
+      </div>
+      <div id="continuousOptions" style="display: none;">
+        <div class="flex items-center justify-between py-1">
+          <span class="text-xs text-gray-600">Smoothness</span>
+          <input id="smoothnessLevel" type="range" min="1" max="5" value="3" 
+                 class="w-20 cursor-pointer">
+        </div>
+      </div>
+    `;
+    
+    label.insertAdjacentElement('afterend', optionsDiv);
+    return true;
+  }
+
+  function ensureOutlineOptionsExist() {
+    if (document.getElementById('outlineOptions')) return true;
+    
+    const showOutlineCheckbox = document.getElementById('showOutline');
+    if (!showOutlineCheckbox) return false;
+    
+    const label = showOutlineCheckbox.closest('label');
+    if (!label) return false;
+    
+    const optionsDiv = document.createElement('div');
+    optionsDiv.id = 'outlineOptions';
+    optionsDiv.className = 'ml-4 space-y-2 pl-2 border-l-2 border-gray-200 mt-2';
+    optionsDiv.innerHTML = `
+      <div class="flex items-center justify-between py-1">
+        <span class="text-xs text-gray-600">Width</span>
+        <input id="outlineWidth" type="number" min="0.5" max="10" step="0.5" value="2.5" 
+               class="w-16 px-2 py-1 text-xs border border-gray-300 rounded bg-white">
+      </div>
+      <div class="flex items-center justify-between py-1">
+        <span class="text-xs text-gray-600">Color</span>
+        <input id="outlineColor" type="color" value="#000000" 
+               class="w-16 h-7 border border-gray-300 rounded cursor-pointer">
+      </div>
+    `;
+    
+    label.insertAdjacentElement('afterend', optionsDiv);
+    return true;
+  }
+
+  function ensureColorMapSelectorExists() {
+    if (document.getElementById('colorMapSelector')) return true;
+    
+    // Find the opacity slider container or basemap selector to insert before
+    const opacitySlider = document.getElementById('opacitySlider');
+    const basemapSelect = document.getElementById('basemapSelect');
+    
+    let insertTarget = null;
+    let insertPosition = 'afterend';
+    
+    // Try to find the opacity slider's parent container
+    if (opacitySlider) {
+      insertTarget = opacitySlider.closest('.flex, .py-1, div');
+      if (insertTarget) {
+        // Go up to find a suitable container
+        while (insertTarget && !insertTarget.classList.contains('space-y-2') && insertTarget.parentElement) {
+          const parent = insertTarget.parentElement;
+          if (parent.classList.contains('space-y-2') || parent.id === 'controlPanel') {
+            break;
+          }
+          insertTarget = parent;
+        }
+      }
+    }
+    
+    // Fallback: insert before basemap if we can find it
+    if (!insertTarget && basemapSelect) {
+      insertTarget = basemapSelect.closest('.flex, .py-1, div');
+      insertPosition = 'beforebegin';
+    }
+    
+    if (!insertTarget) return false;
+    
+    const colorMapDiv = document.createElement('div');
+    colorMapDiv.id = 'colorMapSelector';
+    colorMapDiv.className = 'py-2 border-t border-gray-200 mt-2';
+    
+    // Build options HTML
+    let optionsHtml = '';
+    for (const [key, cmap] of Object.entries(COLOR_MAPS)) {
+      optionsHtml += `<option value="${key}">${cmap.name}</option>`;
+    }
+    
+    colorMapDiv.innerHTML = `
+      <div class="flex items-center justify-between py-1">
+        <span class="text-xs text-gray-600 font-medium">Color Map</span>
+        <select id="colorMapSelect" class="w-36 px-2 py-1 text-xs border border-gray-300 rounded bg-white">
+          ${optionsHtml}
+        </select>
+      </div>
+      <div id="colorMapPreview" class="colormap-preview"></div>
+    `;
+    
+    insertTarget.insertAdjacentElement(insertPosition, colorMapDiv);
+    
+    // Update preview immediately
+    updateColorMapPreview('ylOrRd');
+    
+    return true;
+  }
+
+  function updateColorMapPreview(colorMapId) {
+    const preview = document.getElementById('colorMapPreview');
+    if (!preview) return;
+    
+    const cmap = COLOR_MAPS[colorMapId];
+    if (!cmap) return;
+    
+    const gradientStops = cmap.stops.map(s => 
+      `rgb(${s.color[0]},${s.color[1]},${s.color[2]}) ${s.pos * 100}%`
+    ).join(', ');
+    
+    preview.style.background = `linear-gradient(to right, ${gradientStops})`;
   }
 
   async function init(opts) {
@@ -45,21 +369,78 @@
     if (!jobId) throw new Error('Missing jobId');
     if (!window.L) throw new Error('Leaflet not loaded');
 
+    injectStyles();
+
     const mapEl = el('map');
     const mapContainerEl = el('map-container');
     if (!mapEl || !mapContainerEl) throw new Error('Map container not found in DOM');
 
-    // Re-init support (Change file): tear down any previous map instance
-    const prev = mapEl._hfMap;
-    if (prev && typeof prev.remove === 'function') {
-      try { prev.remove(); } catch (e) {}
-      mapEl._hfMap = null;
+    // Ensure options exist
+    ensureFootprintOptionsExist();
+    ensureOutlineOptionsExist();
+    
+    // Delay colormap selector to ensure other elements exist
+    setTimeout(() => ensureColorMapSelectorExists(), 100);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // UI ELEMENTS
+    // ═══════════════════════════════════════════════════════════════════════════
+    const showFootprint = el('showFootprint');
+    const displayModeSelect = el('displayMode');
+    const cellOptions = el('cellOptions');
+    const continuousOptions = el('continuousOptions');
+    const showCellBorders = el('showCellBorders');
+    const cellBorderOptions = el('cellBorderOptions');
+    const footprintOptions = el('footprintOptions');
+    const showOutline = el('showOutline');
+    const showPoints = el('showPoints');
+    const outlineOptions = el('outlineOptions');
+    const opacitySlider = el('opacitySlider');
+    const opacityValue = el('opacityValue');
+    const basemapSelect = el('basemapSelect');
+    const legendMin = el('legendMin');
+    const legendMax = el('legendMax');
+    const controlPanel = el('controlPanel');
+    const panelToggle = el('panelToggle');
+    const panelHeader = el('panelHeader');
+    const toggleIcon = el('toggleIcon');
+    const smoothnessLevel = el('smoothnessLevel');
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // OPTIONS VISIBILITY
+    // ═══════════════════════════════════════════════════════════════════════════
+    function updateFootprintOptionsVisibility() {
+      if (!footprintOptions) return;
+      footprintOptions.style.display = showFootprint?.checked ? 'block' : 'none';
     }
-    mapEl.dataset.hfInitialized = '1';
 
-    // Parse result data
+    function updateDisplayModeOptions() {
+      const mode = displayModeSelect?.value || 'cells';
+      const cellOpts = el('cellOptions');
+      const contOpts = el('continuousOptions');
+      if (cellOpts) cellOpts.style.display = mode === 'cells' ? 'block' : 'none';
+      if (contOpts) contOpts.style.display = mode === 'continuous' ? 'block' : 'none';
+    }
+
+    function updateCellBorderOptionsVisibility() {
+      if (!cellBorderOptions) return;
+      cellBorderOptions.style.display = showCellBorders?.checked ? 'block' : 'none';
+    }
+
+    function updateOutlineOptionsVisibility() {
+      if (!outlineOptions) return;
+      outlineOptions.style.display = showOutline?.checked ? 'block' : 'none';
+    }
+
+    updateFootprintOptionsVisibility();
+    updateDisplayModeOptions();
+    updateCellBorderOptionsVisibility();
+    updateOutlineOptionsVisibility();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PARSE RESULT DATA
+    // ═══════════════════════════════════════════════════════════════════════════
     const resultData = result || {};
-
     let bounds = Array.isArray(resultData.bounds) ? resultData.bounds : [-10, 40, 10, 60];
     if (!Array.isArray(bounds) || bounds.length !== 4 || bounds.some(b => b === null || isNaN(b))) {
       bounds = [-10, 40, 10, 60];
@@ -68,64 +449,33 @@
     const hailMin = safeNum(resultData.hail_min, 0);
     const hailMax = safeNum(resultData.hail_max, 1);
 
-    // Update legend
-    const legendMin = el('legendMin');
-    const legendMax = el('legendMax');
     if (legendMin) legendMin.textContent = (hailMin || 0).toFixed(1);
     if (legendMax) legendMax.textContent = (hailMax || 1).toFixed(1);
 
-    // Panel toggle
-    const controlPanel = el('controlPanel');
-    const panelToggle = el('panelToggle');
-    const panelHeader = el('panelHeader');
-    const toggleIcon = el('toggleIcon');
-
-    function togglePanel() {
-      if (!controlPanel) return;
-      controlPanel.classList.toggle('hf-collapsed');
-      const collapsed = controlPanel.classList.contains('hf-collapsed');
-      if (toggleIcon) toggleIcon.className = collapsed ? 'bi bi-chevron-left' : 'bi bi-chevron-right';
-    }
-
-    panelToggle?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      togglePanel();
-    });
-    panelHeader?.addEventListener('click', togglePanel);
-
-    // Default basemap based on theme
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MAP SETUP
+    // ═══════════════════════════════════════════════════════════════════════════
     const isDark = document.documentElement.classList.contains('dark');
-    const basemapSelect = el('basemapSelect');
     if (basemapSelect && !basemapSelect.value) basemapSelect.value = isDark ? 'carto_dark' : 'carto_light';
 
-    // =====================
-    // Initialize Map with SVG renderer for consistent colors
-    // =====================
     const center = Array.isArray(resultData.center) && resultData.center.length === 2
       ? resultData.center
       : [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2];
 
-    // Use SVG renderer explicitly to prevent color issues on zoom
     const map = L.map('map', { 
       center, 
       zoom: 8, 
       zoomControl: true,
-      renderer: L.svg({ padding: 0.5 })  // SVG renderer with padding to prevent clipping
+      renderer: L.svg({ padding: 1.0 })
     });
     mapEl._hfMap = map;
 
     const basemapConfigs = {
       osm: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
       carto_light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-      carto_positron_nolabels: 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',
       carto_dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-      carto_voyager: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-      esri_gray: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-      esri_darkgray: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
       esri_worldstreet: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-      esri_worldtopo: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
-      esri_worldimagery: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      none: ''
+      esri_worldimagery: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
     };
 
     const basemaps = {};
@@ -141,27 +491,20 @@
     try { map.fitBounds(leafletBounds, { padding: [50, 50], maxZoom: 12 }); }
     catch (e) { map.setView(center, 8); }
 
-    // Ensure proper sizing if we were revealed with animation
-    setTimeout(() => map.invalidateSize(), 50);
+    // ═══════════════════════════════════════════════════════════════════════════
+    // COLOR SCALE - Dynamic based on selected colormap
+    // ═══════════════════════════════════════════════════════════════════════════
+    let currentColorMap = 'ylOrRd';
 
-    // =====================
-    // Color Scale - Improved interpolation
-    // =====================
-    const colorStops = [
-      { pos: 0.0, color: [255, 255, 178] },   // #ffffb2
-      { pos: 0.17, color: [254, 217, 118] },  // #fed976
-      { pos: 0.33, color: [254, 178, 76] },   // #feb24c
-      { pos: 0.5, color: [253, 141, 60] },    // #fd8d3c
-      { pos: 0.67, color: [252, 78, 42] },    // #fc4e2a
-      { pos: 0.83, color: [227, 26, 28] },    // #e31a1c
-      { pos: 1.0, color: [189, 0, 38] }       // #bd0026
-    ];
+    function getColorStops() {
+      return COLOR_MAPS[currentColorMap]?.stops || COLOR_MAPS.ylOrRd.stops;
+    }
 
-    function getColor(value) {
+    function getColorRGB(value) {
+      const colorStops = getColorStops();
       const range = (hailMax - hailMin) || 1;
       const normalized = Math.max(0, Math.min(1, (value - hailMin) / range));
       
-      // Find the two color stops to interpolate between
       let lower = colorStops[0];
       let upper = colorStops[colorStops.length - 1];
       
@@ -173,72 +516,502 @@
         }
       }
       
-      // Interpolate between the two colors
       const range2 = upper.pos - lower.pos || 1;
       const t = (normalized - lower.pos) / range2;
-      
       const r = Math.round(lower.color[0] + t * (upper.color[0] - lower.color[0]));
       const g = Math.round(lower.color[1] + t * (upper.color[1] - lower.color[1]));
       const b = Math.round(lower.color[2] + t * (upper.color[2] - lower.color[2]));
       
+      return { r, g, b };
+    }
+
+    function getColor(value) {
+      const { r, g, b } = getColorRGB(value);
       return `rgb(${r},${g},${b})`;
     }
 
+    function updateLegendGradient() {
+      const legendGradient = el('legendGradient');
+      if (!legendGradient) return;
+      
+      const colorStops = getColorStops();
+      const gradientStops = colorStops.map(s => 
+        `rgb(${s.color[0]},${s.color[1]},${s.color[2]}) ${s.pos * 100}%`
+      ).join(', ');
+      
+      legendGradient.style.background = `linear-gradient(to top, ${gradientStops})`;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════════════════════
     let footprintLayer = null;
+    let canvasSmoothLayer = null;
     let outlineLayer = null;
     let pointsLayer = null;
     let currentOpacity = 0.6;
+    let displayMode = 'cells';
+    let smoothness = 3;
+    let geoJsonData = null;
+    
+    // Cell border settings
+    let showCellBordersEnabled = true;
+    let cellBorderWidth = 0.5;
+    let cellBorderColor = '#666666';
+    
+    // Outline settings
+    let outlineWidth = 2.5;
+    let outlineColor = '#000000';
 
-    const opacityValue = el('opacityValue');
-    const opacitySlider = el('opacitySlider');
     if (opacitySlider) opacitySlider.value = String(currentOpacity);
     if (opacityValue) opacityValue.textContent = currentOpacity.toFixed(1);
 
-    // Store styles per feature to ensure consistency
     const featureStyles = new WeakMap();
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CANVAS CONTINUOUS LAYER
+    // ═══════════════════════════════════════════════════════════════════════════
+    const CanvasContinuousLayer = L.Layer.extend({
+      initialize: function(geojson, options) {
+        this._geojson = geojson;
+        this._options = options || {};
+        this._canvas = null;
+      },
+      
+      onAdd: function(map) {
+        this._map = map;
+        this._canvas = L.DomUtil.create('canvas', 'hf-smooth-canvas leaflet-layer');
+        
+        const pane = map.getPane('overlayPane');
+        pane.appendChild(this._canvas);
+        
+        map.on('moveend', this._update, this);
+        map.on('zoomend', this._update, this);
+        
+        this._update();
+      },
+      
+      onRemove: function(map) {
+        if (this._canvas && this._canvas.parentNode) {
+          this._canvas.parentNode.removeChild(this._canvas);
+        }
+        map.off('moveend', this._update, this);
+        map.off('zoomend', this._update, this);
+      },
+      
+      setOpacity: function(opacity) {
+        this._options.opacity = opacity;
+        if (this._canvas) {
+          this._canvas.style.opacity = opacity;
+        }
+      },
+      
+      refresh: function() {
+        this._update();
+      },
+      
+      _update: function() {
+        if (!this._map || !this._geojson) return;
+        
+        const map = this._map;
+        const size = map.getSize();
+        const topLeft = map.containerPointToLayerPoint([0, 0]);
+        
+        L.DomUtil.setPosition(this._canvas, topLeft);
+        this._canvas.width = size.x;
+        this._canvas.height = size.y;
+        this._canvas.style.opacity = this._options.opacity || 0.6;
+        
+        const ctx = this._canvas.getContext('2d');
+        ctx.clearRect(0, 0, size.x, size.y);
+        
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        
+        // Collect cell data
+        const cells = [];
+        const features = this._geojson.features || [];
+        
+        for (const feature of features) {
+          if (!feature.geometry || feature.geometry.type !== 'Polygon') continue;
+          
+          const coords = feature.geometry.coordinates[0];
+          const value = feature.properties?.Hail_Size || 0;
+          
+          // Get center of cell
+          let cx = 0, cy = 0;
+          for (const coord of coords) {
+            cx += coord[0];
+            cy += coord[1];
+          }
+          cx /= coords.length;
+          cy /= coords.length;
+          
+          const point = map.latLngToContainerPoint([cy, cx]);
+          
+          // Estimate cell size in pixels
+          const p1 = map.latLngToContainerPoint([coords[0][1], coords[0][0]]);
+          const p2 = map.latLngToContainerPoint([coords[2][1], coords[2][0]]);
+          const cellWidth = Math.abs(p2.x - p1.x);
+          const cellHeight = Math.abs(p2.y - p1.y);
+          
+          cells.push({
+            x: point.x,
+            y: point.y,
+            width: cellWidth,
+            height: cellHeight,
+            value: value
+          });
+        }
+        
+        const smoothLevel = this._options.smoothness || 3;
+        
+        // Draw cells with radial gradients for smooth blending
+        for (const cell of cells) {
+          const color = getColorRGB(cell.value);
+          const radius = Math.max(cell.width, cell.height) * (1 + smoothLevel * 0.3);
+          
+          const gradient = ctx.createRadialGradient(
+            cell.x, cell.y, 0,
+            cell.x, cell.y, radius
+          );
+          
+          gradient.addColorStop(0, `rgba(${color.r},${color.g},${color.b},1)`);
+          gradient.addColorStop(0.5, `rgba(${color.r},${color.g},${color.b},0.8)`);
+          gradient.addColorStop(0.8, `rgba(${color.r},${color.g},${color.b},0.3)`);
+          gradient.addColorStop(1, `rgba(${color.r},${color.g},${color.b},0)`);
+          
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(cell.x, cell.y, radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        
+        // Additional blur for extra smoothing
+        const blurRadius = smoothLevel * 2;
+        if (blurRadius > 0) {
+          ctx.filter = `blur(${blurRadius}px)`;
+          ctx.drawImage(this._canvas, 0, 0);
+          ctx.filter = 'none';
+        }
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STYLE FUNCTIONS
+    // ═══════════════════════════════════════════════════════════════════════════
+    function clearFeatureStyleCache() {
+      // Clear the WeakMap cache by reassigning
+      if (footprintLayer) {
+        footprintLayer.eachLayer(layer => {
+          if (layer.feature && featureStyles.has(layer.feature)) {
+            featureStyles.delete(layer.feature);
+          }
+        });
+      }
+    }
+
     function getFeatureStyle(feature) {
-      // Cache the color for each feature to prevent recalculation issues
       if (!featureStyles.has(feature)) {
         featureStyles.set(feature, {
           fillColor: getColor(feature.properties?.Hail_Size || 0)
         });
       }
       const cached = featureStyles.get(feature);
-      return {
-        fillColor: cached.fillColor,
-        weight: 0.5,
-        opacity: 0.8,
-        color: '#666',
-        fillOpacity: currentOpacity
-      };
-    }
-
-    function footprintStyle(feature) {
-      return getFeatureStyle(feature);
-    }
-
-    // Function to refresh all layer styles (call after opacity change or zoom)
-    function refreshLayerStyles() {
-      if (!footprintLayer) return;
-      footprintLayer.eachLayer(layer => {
-        if (layer.feature) {
-          layer.setStyle(getFeatureStyle(layer.feature));
+      
+      if (displayMode === 'continuous') {
+        // CONTINUOUS MODE: Hide SVG layer entirely (canvas takes over)
+        return {
+          fillColor: 'transparent',
+          fill: false,
+          stroke: false,
+          weight: 0,
+          opacity: 0,
+          fillOpacity: 0
+        };
+      } else {
+        // GRID CELLS MODE
+        if (showCellBordersEnabled) {
+          return {
+            fillColor: cached.fillColor,
+            fill: true,
+            stroke: true,
+            weight: cellBorderWidth,
+            opacity: 0.8,
+            color: cellBorderColor,
+            fillOpacity: currentOpacity
+          };
+        } else {
+          return {
+            fillColor: cached.fillColor,
+            fill: true,
+            stroke: false,
+            weight: 0,
+            opacity: 0,
+            fillOpacity: currentOpacity
+          };
         }
+      }
+    }
+
+    function refreshLayerStyles() {
+      // Handle different display modes
+      if (displayMode === 'continuous') {
+        // Hide SVG layer, show canvas
+        if (footprintLayer) {
+          footprintLayer.eachLayer(layer => {
+            if (layer.feature) {
+              layer.setStyle({ fillOpacity: 0, opacity: 0, stroke: false, fill: false });
+            }
+          });
+        }
+        
+        // Create/update canvas layer
+        if (!canvasSmoothLayer && geoJsonData) {
+          canvasSmoothLayer = new CanvasContinuousLayer(geoJsonData, {
+            opacity: currentOpacity,
+            smoothness: smoothness
+          });
+        }
+        if (canvasSmoothLayer && showFootprint?.checked) {
+          if (!map.hasLayer(canvasSmoothLayer)) {
+            canvasSmoothLayer.addTo(map);
+          }
+          canvasSmoothLayer.setOpacity(currentOpacity);
+          canvasSmoothLayer._options.smoothness = smoothness;
+          canvasSmoothLayer._update();
+        }
+        
+      } else {
+        // Grid Cells mode
+        if (canvasSmoothLayer && map.hasLayer(canvasSmoothLayer)) {
+          map.removeLayer(canvasSmoothLayer);
+        }
+        if (footprintLayer) {
+          footprintLayer.eachLayer(layer => {
+            if (layer.feature) {
+              layer.setStyle(getFeatureStyle(layer.feature));
+            }
+          });
+          if (!map.hasLayer(footprintLayer) && showFootprint?.checked) {
+            footprintLayer.addTo(map);
+          }
+        }
+      }
+    }
+
+    function refreshColorsAndStyles() {
+      // Clear cached colors
+      clearFeatureStyleCache();
+      
+      // Re-cache colors with new colormap
+      if (footprintLayer) {
+        footprintLayer.eachLayer(layer => {
+          if (layer.feature) {
+            featureStyles.set(layer.feature, {
+              fillColor: getColor(layer.feature.properties?.Hail_Size || 0)
+            });
+          }
+        });
+      }
+      
+      // Update legend gradient
+      updateLegendGradient();
+      
+      // Refresh the layers
+      refreshLayerStyles();
+      
+      // If canvas layer exists, force redraw
+      if (canvasSmoothLayer && map.hasLayer(canvasSmoothLayer)) {
+        canvasSmoothLayer.refresh();
+      }
+    }
+
+    function updateOutlineStyle() {
+      if (!outlineLayer) return;
+      outlineLayer.eachLayer(layer => {
+        layer.setStyle({
+          fill: false,
+          weight: outlineWidth,
+          color: outlineColor,
+          opacity: 1
+        });
       });
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DISPLAY MODES
+    // ═══════════════════════════════════════════════════════════════════════════
+    function updateDisplayMode() {
+      displayMode = displayModeSelect?.value || 'cells';
+      updateDisplayModeOptions();
+      refreshLayerStyles();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EVENT LISTENERS
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Footprint toggle
+    showFootprint?.addEventListener('change', function () {
+      updateFootprintOptionsVisibility();
+      
+      if (this.checked) {
+        if (displayMode === 'continuous' && canvasSmoothLayer) {
+          canvasSmoothLayer.addTo(map);
+        } else if (footprintLayer) {
+          footprintLayer.addTo(map);
+        }
+        refreshLayerStyles();
+      } else {
+        if (footprintLayer && map.hasLayer(footprintLayer)) {
+          map.removeLayer(footprintLayer);
+        }
+        if (canvasSmoothLayer && map.hasLayer(canvasSmoothLayer)) {
+          map.removeLayer(canvasSmoothLayer);
+        }
+      }
+    });
+
+    // Display mode change
+    displayModeSelect?.addEventListener('change', updateDisplayMode);
+
+    // Smoothness slider (for continuous mode)
+    document.addEventListener('input', (e) => {
+      if (e.target.id === 'smoothnessLevel') {
+        smoothness = safeNum(e.target.value, 3);
+        if (displayMode === 'continuous' && canvasSmoothLayer) {
+          canvasSmoothLayer._options.smoothness = smoothness;
+          canvasSmoothLayer._update();
+        }
+      }
+    });
+
+    // Color map selector
+    document.addEventListener('change', (e) => {
+      if (e.target.id === 'colorMapSelect') {
+        currentColorMap = e.target.value;
+        updateColorMapPreview(currentColorMap);
+        refreshColorsAndStyles();
+      }
+    });
+
+    // Cell borders toggle
+    showCellBorders?.addEventListener('change', function () {
+      showCellBordersEnabled = this.checked;
+      updateCellBorderOptionsVisibility();
+      refreshLayerStyles();
+    });
+
+    // Cell border settings
+    function updateCellSettings(e) {
+      if (e.target.id === 'cellBorderWidth') cellBorderWidth = safeNum(e.target.value, 0.5);
+      if (e.target.id === 'cellBorderColor') cellBorderColor = e.target.value;
+      refreshLayerStyles();
+    }
+    
+    document.addEventListener('input', (e) => {
+      if (['cellBorderWidth', 'cellBorderColor'].includes(e.target.id)) updateCellSettings(e);
+    });
+    document.addEventListener('change', (e) => {
+      if (e.target.id === 'cellBorderColor') updateCellSettings(e);
+    });
+
+    // Outline toggle
+    showOutline?.addEventListener('change', function () {
+      updateOutlineOptionsVisibility();
+      if (outlineLayer) {
+        if (this.checked) outlineLayer.addTo(map);
+        else map.removeLayer(outlineLayer);
+      }
+    });
+
+    // Outline settings
+    function updateOutlineSettings(e) {
+      if (e.target.id === 'outlineWidth') outlineWidth = safeNum(e.target.value, 2.5);
+      if (e.target.id === 'outlineColor') outlineColor = e.target.value;
+      updateOutlineStyle();
+    }
+
+    document.addEventListener('input', (e) => {
+      if (['outlineWidth', 'outlineColor'].includes(e.target.id)) updateOutlineSettings(e);
+    });
+    document.addEventListener('change', (e) => {
+      if (e.target.id === 'outlineColor') updateOutlineSettings(e);
+    });
+
+    // Points toggle
+    showPoints?.addEventListener('change', function () {
+      if (!pointsLayer) return;
+      if (this.checked) pointsLayer.addTo(map);
+      else map.removeLayer(pointsLayer);
+      el('togglePointsBtn')?.classList.toggle('hf-active', this.checked);
+    });
+
+    // Opacity slider
+    opacitySlider?.addEventListener('input', function () {
+      currentOpacity = safeNum(this.value, 0.6);
+      if (opacityValue) opacityValue.textContent = currentOpacity.toFixed(1);
+      refreshLayerStyles();
+    });
+
+    // Basemap selector
+    basemapSelect?.addEventListener('change', function () {
+      currentBasemapId = this.value;
+      if (currentBasemap) map.removeLayer(currentBasemap);
+      currentBasemap = basemaps[currentBasemapId];
+      if (currentBasemap) {
+        currentBasemap.addTo(map);
+        currentBasemap.bringToBack();
+      }
+    });
+
+    // Quick action buttons
+    el('resetViewBtn')?.addEventListener('click', () => {
+      try { map.fitBounds(leafletBounds, { padding: [50, 50], maxZoom: 12 }); }
+      catch (e) { map.setView(center, 8); }
+    });
+
+    el('toggleLayersBtn')?.addEventListener('click', () => {
+      if (showFootprint) {
+        showFootprint.checked = !showFootprint.checked;
+        showFootprint.dispatchEvent(new Event('change'));
+      }
+    });
+
+    el('togglePointsBtn')?.addEventListener('click', () => {
+      if (showPoints) {
+        showPoints.checked = !showPoints.checked;
+        showPoints.dispatchEvent(new Event('change'));
+      }
+    });
+
+    // Panel Toggle
+    function togglePanel() {
+      if (!controlPanel) return;
+      controlPanel.classList.toggle('hf-collapsed');
+      const collapsed = controlPanel.classList.contains('hf-collapsed');
+      if (toggleIcon) toggleIcon.className = collapsed ? 'bi bi-chevron-left text-xs' : 'bi bi-chevron-right text-xs';
+    }
+    panelToggle?.addEventListener('click', (e) => { e.stopPropagation(); togglePanel(); });
+    panelHeader?.addEventListener('click', togglePanel);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DATA LOADING
+    // ═══════════════════════════════════════════════════════════════════════════
     async function loadLayers() {
       try {
-        // Footprint polygons
+        // Footprint (Polygons)
         const footprintRes = await fetch(`/geojson/${jobId}`);
         if (footprintRes.ok) {
           const data = await footprintRes.json();
+          geoJsonData = data;
+          
           if (data.features?.length) {
             footprintLayer = L.geoJSON(data, {
-              style: footprintStyle,
+              style: getFeatureStyle, 
+              smoothFactor: 0.5,
               onEachFeature: (feature, layer) => {
-                // Pre-cache the color for this feature
                 getFeatureStyle(feature);
                 
                 layer.on({
@@ -246,11 +1019,8 @@
                     const val = feature.properties?.Hail_Size || 0;
                     const hoverInfo = el('hoverInfo');
                     if (hoverInfo) hoverInfo.innerHTML = `<strong>${Number(val).toFixed(2)} cm</strong>`;
-                    layer.setStyle({ weight: 2, color: '#fff' });
                   },
                   mouseout: () => {
-                    // Restore full style including cached color
-                    layer.setStyle(getFeatureStyle(feature));
                     const hoverInfo = el('hoverInfo');
                     if (hoverInfo) hoverInfo.textContent = 'Hover over map';
                   },
@@ -260,7 +1030,13 @@
                   }
                 });
               }
-            }).addTo(map);
+            });
+            
+            footprintLayer.addTo(map);
+            refreshLayerStyles();
+            
+            // Update legend with initial colormap
+            updateLegendGradient();
           }
         }
 
@@ -269,11 +1045,18 @@
         if (outlineRes.ok) {
           const data = await outlineRes.json();
           if (data.features?.length) {
-            outlineLayer = L.geoJSON(data, { style: { fill: false, weight: 2.5, color: '#000', opacity: 1 } }).addTo(map);
+            outlineLayer = L.geoJSON(data, { 
+              style: { 
+                fill: false, 
+                weight: outlineWidth, 
+                color: outlineColor, 
+                opacity: 1 
+              } 
+            }).addTo(map);
           }
         }
 
-        // Points (hidden initially)
+        // Points
         const pointsRes = await fetch(`/points_geojson/${jobId}`);
         if (pointsRes.ok) {
           const data = await pointsRes.json();
@@ -295,98 +1078,51 @@
 
         const loading = el('loading-overlay');
         if (loading) loading.style.display = 'none';
+        
+        // Initialize colormap selector after a delay
+        setTimeout(() => {
+          ensureColorMapSelectorExists();
+          updateLegendGradient();
+        }, 200);
+
       } catch (err) {
-        console.error('Load error:', err);
+        console.error('[Viewer] Load error:', err);
         const loading = el('loading-overlay');
         if (loading) loading.style.display = 'none';
-        showInlineError('Failed to load map data.');
+        showInlineError('Failed to load map data: ' + err.message);
       }
     }
 
     await loadLayers();
 
-    // Refresh styles on zoom to ensure colors persist
-    map.on('zoomend', refreshLayerStyles);
-    map.on('moveend', refreshLayerStyles);
-
-    // =====================
-    // Controls
-    // =====================
-    const showFootprint = el('showFootprint');
-    const showOutline = el('showOutline');
-    const showPoints = el('showPoints');
-
-    showFootprint?.addEventListener('change', function () {
-      if (!footprintLayer) return;
-      if (this.checked) {
-        footprintLayer.addTo(map);
-        refreshLayerStyles();  // Refresh colors when re-adding layer
-      } else {
-        map.removeLayer(footprintLayer);
-      }
-    });
-    showOutline?.addEventListener('change', function () {
-      if (!outlineLayer) return;
-      this.checked ? outlineLayer.addTo(map) : map.removeLayer(outlineLayer);
-    });
-    showPoints?.addEventListener('change', function () {
-      if (!pointsLayer) return;
-      if (this.checked) pointsLayer.addTo(map);
-      else map.removeLayer(pointsLayer);
-      el('togglePointsBtn')?.classList.toggle('hf-active', this.checked);
-    });
-
-    opacitySlider?.addEventListener('input', function () {
-      currentOpacity = safeNum(this.value, 0.6);
-      if (opacityValue) opacityValue.textContent = currentOpacity.toFixed(1);
-      // Refresh all styles with new opacity while preserving colors
-      refreshLayerStyles();
-    });
-
-    basemapSelect?.addEventListener('change', function () {
-      currentBasemapId = this.value;
-      if (currentBasemap) map.removeLayer(currentBasemap);
-      currentBasemap = basemaps[currentBasemapId];
-      if (currentBasemap) {
-        currentBasemap.addTo(map);
-        currentBasemap.bringToBack();
-      }
-    });
-
-    el('resetViewBtn')?.addEventListener('click', () => {
-      try { map.fitBounds(leafletBounds, { padding: [50, 50], maxZoom: 12 }); }
-      catch (e) { /* noop */ }
-    });
-
-    el('toggleLayersBtn')?.addEventListener('click', function () {
-      if (!showFootprint || !showOutline) return;
-      const allVisible = showFootprint.checked && showOutline.checked;
-      showFootprint.checked = !allVisible;
-      showOutline.checked = !allVisible;
-      showFootprint.dispatchEvent(new Event('change'));
-      showOutline.dispatchEvent(new Event('change'));
-      this.classList.toggle('hf-active', !allVisible);
-    });
-
-    el('togglePointsBtn')?.addEventListener('click', function () {
-      if (!showPoints) return;
-      showPoints.checked = !showPoints.checked;
-      showPoints.dispatchEvent(new Event('change'));
-    });
-
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MAP EVENTS
+    // ═══════════════════════════════════════════════════════════════════════════
     map.on('mousemove', (e) => {
       const c = el('coordsDisplay');
       if (c) c.textContent = `${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`;
     });
-
     L.control.scale({ metric: true, imperial: false }).addTo(map);
 
-    // =====================
-    // Export
-    // =====================
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EXPORT
+    // ═══════════════════════════════════════════════════════════════════════════
     function getCurrentBounds() {
       const b = map.getBounds();
       return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+    }
+
+    function getCurrentSettings() {
+      return {
+        displayMode: displayModeSelect?.value || 'cells',
+        showCellBorders: document.getElementById('showCellBorders')?.checked ?? showCellBordersEnabled,
+        cellBorderWidth: safeNum(document.getElementById('cellBorderWidth')?.value, cellBorderWidth),
+        cellBorderColor: document.getElementById('cellBorderColor')?.value || cellBorderColor,
+        outlineWidth: safeNum(document.getElementById('outlineWidth')?.value, outlineWidth),
+        outlineColor: document.getElementById('outlineColor')?.value || outlineColor,
+        smoothness: smoothness,
+        colorMap: currentColorMap
+      };
     }
 
     let isExporting = false;
@@ -396,97 +1132,74 @@
         window.HailUI?.toast?.('Export already in progress…', { type: 'warning', title: 'Please wait' });
         return;
       }
-
+      
       const exportBtn = el('exportCurrentViewBtn');
       const originalContent = exportBtn?.innerHTML;
       
       try {
         isExporting = true;
-        
-        // Update button to show loading state
         if (exportBtn) {
           exportBtn.disabled = true;
           exportBtn.innerHTML = '<i class="bi bi-hourglass-split animate-spin"></i> Generating…';
         }
-
         window.HailUI?.toast?.('Generating high-quality map…', { type: 'info', title: 'Export' });
         
+        const settings = getCurrentSettings();
+        
+        const exportData = {
+          bounds: getCurrentBounds(),
+          basemap: currentBasemapId,
+          show_footprint: !!showFootprint?.checked,
+          show_outline: !!showOutline?.checked,
+          show_points: !!showPoints?.checked,
+          opacity: currentOpacity,
+          display_mode: settings.displayMode,
+          show_cell_borders: settings.showCellBorders,
+          cell_border_width: settings.cellBorderWidth,
+          cell_border_color: settings.cellBorderColor,
+          outline_width: settings.outlineWidth,
+          outline_color: settings.outlineColor,
+          smoothness: settings.smoothness,
+          color_map: settings.colorMap,
+          width_px: 3200,
+          height_px: 2000
+        };
+        
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+        const timeoutId = setTimeout(() => controller.abort(), 120000);
 
         const res = await fetch(`/render_map/${jobId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            bounds: getCurrentBounds(),
-            basemap: currentBasemapId,
-            show_footprint: !!showFootprint?.checked,
-            show_outline: !!showOutline?.checked,
-            show_points: !!showPoints?.checked,
-            opacity: currentOpacity,
-            width_px: 3200,
-            height_px: 2000
-          }),
+          body: JSON.stringify(exportData),
           signal: controller.signal
         });
 
         clearTimeout(timeoutId);
 
         if (!res.ok) {
-          let err = 'Export failed';
-          try { 
-            const errData = await res.json();
-            err = errData.error || err; 
-          } catch (e) {
-            try { err = await res.text(); } catch (e2) {}
-          }
-          throw new Error(err);
+          const errorText = await res.text();
+          throw new Error('Export failed: ' + (errorText || res.statusText));
         }
-
-        const ct = (res.headers.get('content-type') || '').toLowerCase();
-        if (!ct.includes('image/png')) {
-          let body = '';
-          try { body = await res.text(); } catch (e) {}
-          const preview = body ? body.slice(0, 300) : '';
-          throw new Error(`Export did not return a PNG (content-type: ${ct || 'unknown'}). ${preview ? `Response: ${preview}` : ''}`.trim());
-        }
-
-        const blob = await res.blob();
         
-        if (blob.size < 1000) {
-          throw new Error('Generated image is too small - export may have failed');
-        }
+        const blob = await res.blob();
+        if (blob.size < 1000) throw new Error('Generated image is too small');
 
-        // Use a more reliable download method
         const url = URL.createObjectURL(blob);
         const filename = `${eventName || 'hail_footprint'}_map.png`;
-        
-        // Try using the download attribute first
         const a = document.createElement('a');
         a.href = url;
         a.download = filename;
         a.style.display = 'none';
         document.body.appendChild(a);
-        
-        // Use a slight delay to ensure the link is in the DOM
-        await new Promise(resolve => setTimeout(resolve, 100));
         a.click();
-        
-        // Clean up after a delay to ensure download starts
-        setTimeout(() => {
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }, 1000);
+        setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
 
         window.HailUI?.toast?.('Map exported successfully!', { type: 'success', title: 'Export Complete' });
 
       } catch (e) {
-        console.error('Export error:', e);
-        if (e.name === 'AbortError') {
-          showInlineError('Export timed out. Try with a smaller view area.');
-        } else {
-          showInlineError(e.message || 'Export failed. Please try again.');
-        }
+        console.error('[Viewer] Export error:', e);
+        showInlineError(e.message || 'Export failed.');
         window.HailUI?.toast?.(e.message || 'Export failed', { type: 'danger', title: 'Export Error' });
       } finally {
         isExporting = false;
@@ -498,39 +1211,70 @@
     }
 
     async function exportScreenshot() {
-      const ok = await ensureDomToImage();
-      if (!ok) throw new Error('Screenshot export unavailable (dom-to-image failed to load)');
-      window.HailUI?.toast?.('Capturing screenshot…', { type: 'info', title: 'Export' });
+      const screenshotBtn = el('exportScreenshotBtn');
+      const originalContent = screenshotBtn?.innerHTML;
       
       try {
-        const dataUrl = await window.domtoimage.toPng(mapEl, { 
-          quality: 1, 
-          bgcolor: '#fff',
-          style: {
-            'transform': 'none'  // Prevent transform issues
-          }
+        if (screenshotBtn) {
+          screenshotBtn.disabled = true;
+          screenshotBtn.innerHTML = '<i class="bi bi-hourglass-split animate-spin"></i> Capturing…';
+        }
+        
+        if (!window.html2canvas) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+            script.onload = resolve;
+            script.onerror = () => reject(new Error('Failed to load screenshot library'));
+            document.head.appendChild(script);
+          });
+        }
+        
+        window.HailUI?.toast?.('Capturing screenshot…', { type: 'info', title: 'Export' });
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const mapElement = document.getElementById('map');
+        if (!mapElement) throw new Error('Map element not found');
+        
+        const canvas = await window.html2canvas(mapElement, {
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          scale: 2
         });
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        a.download = `${eventName || 'hail_footprint'}_screenshot.png`;
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => document.body.removeChild(a), 100);
+        
+        const dataUrl = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = `${eventName || 'hail_footprint'}_screenshot.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
         window.HailUI?.toast?.('Screenshot saved!', { type: 'success', title: 'Done' });
+        
       } catch (e) {
-        throw new Error('Screenshot capture failed: ' + e.message);
+        console.error('[Viewer] Screenshot error:', e);
+        showInlineError('Screenshot failed: ' + e.message);
+        window.HailUI?.toast?.('Screenshot failed: ' + e.message, { type: 'danger', title: 'Error' });
+      } finally {
+        if (screenshotBtn) {
+          screenshotBtn.disabled = false;
+          screenshotBtn.innerHTML = originalContent || '<i class="bi bi-image"></i> Screenshot';
+        }
       }
     }
 
     el('exportCurrentViewBtn')?.addEventListener('click', async () => {
-      try { await exportServerRendered(); }
-      catch (e) { showInlineError(e.message); }
+      try { await exportServerRendered(); } catch (e) { showInlineError(e.message); }
+    });
+    
+    el('exportScreenshotBtn')?.addEventListener('click', async () => {
+      try { await exportScreenshot(); } catch (e) { showInlineError(e.message); }
     });
 
-    el('exportScreenshotBtn')?.addEventListener('click', async () => {
-      try { await exportScreenshot(); }
-      catch (e) { showInlineError(e.message); }
-    });
+    console.log('[Viewer] ✓ Initialization complete');
   }
 
   window.HailViewer = { init };

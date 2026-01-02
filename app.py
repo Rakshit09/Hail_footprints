@@ -10,14 +10,14 @@ import base64
 import re
 import numpy as np
 import pandas as pd
-
 from flask import (Flask, render_template, request, jsonify, send_from_directory, url_for, session, send_file)
-
+import warnings
 from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
-
+from pyproj import Transformer
 from config import Config
 from processing.footprint import Params, run_footprint, get_processing_status
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 try:
     # disable SSL verification 
@@ -37,8 +37,18 @@ except Exception as e:
 
 app = Flask(__name__)
 app.config.from_object(Config)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024  # 1GB
+socketio = SocketIO(
+    app,
+    async_mode='threading',
+    ping_timeout=60,
+    ping_interval=25,
+    cors_allowed_origins="*",
+    max_http_buffer_size=1024 * 1024 * 1024,  # 1GB
+    async_handlers=True)
 
+
+app.secret_key = 'supersecretkey'
 # store processing jobs
 processing_jobs = {}
 
@@ -121,105 +131,188 @@ def index():
 
 
 @app.route('/upload', methods=['POST'])
+@app.route('/upload', methods=['POST'])
 def upload_file():
     """handle file upload and return column info"""
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    
-    if not allowed_file(file.filename):
-        return jsonify({'error': 'File type not allowed. Supported: CSV, GPKG, GeoJSON, SHP'}), 400
-    
-    # generate unique ID for this session
-    job_id = str(uuid.uuid4())[:8]
-    filename = secure_filename(file.filename)
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    saved_filename = f"{job_id}_{timestamp}_{filename}"
-    filepath = Config.UPLOAD_FOLDER / saved_filename
-    
-    file.save(filepath)
-    
-    # parse columns
     try:
-        if filename.lower().endswith('.csv'):
-            # read with flexible parsing
-            df_preview = pd.read_csv(filepath, nrows=25)
+        # Check content length first
+        content_length = request.content_length
+        max_size = app.config.get('MAX_CONTENT_LENGTH', 50 * 1024 * 1024)
+        
+        if content_length and content_length > max_size:
+            return jsonify({
+                'error': f'File too large. Maximum size is {max_size // (1024*1024)}MB'
+            }), 413
+        
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if not allowed_file(file.filename):
+            allowed = ', '.join(Config.ALLOWED_EXTENSIONS)
+            return jsonify({'error': f'File type not allowed. Supported: {allowed}'}), 400
+        
+        # Generate unique ID for this session
+        job_id = str(uuid.uuid4())[:8]
+        filename = secure_filename(file.filename)
+        
+        # Handle empty filename after sanitization
+        if not filename:
+            filename = f"upload_{job_id}.csv"
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        saved_filename = f"{job_id}_{timestamp}_{filename}"
+        
+        # Ensure upload folder exists
+        Config.UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
+        
+        filepath = Config.UPLOAD_FOLDER / saved_filename
+        
+        # Save file
+        try:
+            file.save(str(filepath))
+        except Exception as e:
+            return jsonify({'error': f'Failed to save file: {str(e)}'}), 500
+        
+        # Verify file was saved
+        if not filepath.exists():
+            return jsonify({'error': 'File was not saved correctly'}), 500
+        
+        file_size = filepath.stat().st_size
+        if file_size == 0:
+            filepath.unlink()  # Delete empty file
+            return jsonify({'error': 'Uploaded file is empty'}), 400
+        
+        print(f"[Upload] Saved file: {saved_filename} ({file_size} bytes)")
+        
+        # Parse columns
+        try:
+            if filename.lower().endswith('.csv'):
+                # Try different encodings
+                encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
+                df_preview = None
+                
+                for encoding in encodings:
+                    try:
+                        df_preview = pd.read_csv(filepath, nrows=25, encoding=encoding)
+                        break
+                    except UnicodeDecodeError:
+                        continue
+                    except Exception as e:
+                        print(f"[Upload] CSV parse error with {encoding}: {e}")
+                        continue
+                
+                if df_preview is None:
+                    return jsonify({'error': 'Could not parse CSV file. Check file encoding.'}), 400
+                
+                # Count total rows efficiently
+                try:
+                    with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                        row_count = sum(1 for _ in f) - 1  # Subtract header
+                except:
+                    row_count = len(pd.read_csv(filepath, usecols=[0]))
+                    
+            else:
+                import geopandas as gpd
+                gdf = gpd.read_file(str(filepath))
+                df_preview = pd.DataFrame(gdf.drop(columns='geometry', errors='ignore')).head(25)
+                row_count = len(gdf)
             
-            # count total rows 
-            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-                row_count = sum(1 for _ in f) - 1  # subtract header
-        else:
-            import geopandas as gpd
-            gdf = gpd.read_file(filepath)
-            df_preview = pd.DataFrame(gdf.drop(columns='geometry', errors='ignore')).head(5)
-            row_count = len(gdf)
-        
-        columns = list(df_preview.columns)
-        
-        # auto-detect with scoring / prioritization
-        best_matches = {}  # format: {'latitude': {'col': 'Name', 'score': 1}}
-        
-        for col in columns:
-            col_type = guess_column_type(col)
+            columns = list(df_preview.columns)
             
-            if col_type != 'unknown':
-                col_lower = col.lower()
-                score = 3  # default score (worst)
+            if len(columns) == 0:
+                return jsonify({'error': 'No columns found in file'}), 400
+            
+            # Auto-detect with scoring/prioritization
+            best_matches = {}
+            
+            for col in columns:
+                col_type = guess_column_type(col)
                 
-                    # --- scoring rules (lower is better) ---
-                
-                # 1. latitude priority
-                if col_type == 'latitude':
-                    if col_lower in ['latitude', 'lat', 'y', 'lat_dd']:
-                        score = 1
-                    elif 'start' in col_lower or col_lower == 'slat':
-                        score = 2
-                        
-                # 2. longitude priority
-                elif col_type == 'longitude':
-                    if col_lower in ['longitude', 'lon', 'long', 'x', 'lon_dd', 'lng']:
-                        score = 1
-                    elif 'start' in col_lower or col_lower == 'slon':
-                        score = 2
-                
-                # 3. hail size priority
-                elif col_type == 'hail_size':
-                    if col_lower in ['max_hail_diameter', 'hail_size', 'hailsize', 'maximum_hail_diameter']:
-                        score = 1
-                    elif 'max' in col_lower or 'diam' in col_lower:
-                        score = 2
+                if col_type != 'unknown':
+                    col_lower = col.lower()
+                    score = 3  # Default score (worst)
+                    
+                    # Scoring rules
+                    if col_type == 'latitude':
+                        if col_lower in ['latitude', 'lat', 'y', 'lat_dd']:
+                            score = 1
+                        elif 'start' in col_lower or col_lower == 'slat':
+                            score = 2
+                            
+                    elif col_type == 'longitude':
+                        if col_lower in ['longitude', 'lon', 'long', 'x', 'lon_dd', 'lng']:
+                            score = 1
+                        elif 'start' in col_lower or col_lower == 'slon':
+                            score = 2
+                    
+                    elif col_type == 'hail_size':
+                        if col_lower in ['max_hail_diameter', 'hail_size', 'hailsize', 'maximum_hail_diameter']:
+                            score = 1
+                        elif 'max' in col_lower or 'diam' in col_lower:
+                            score = 2
 
-                # --- selection logic ---
-                if col_type not in best_matches:
-                    best_matches[col_type] = {'col': col, 'score': score}
-                else:
-                    if score < best_matches[col_type]['score']:
+                    if col_type not in best_matches:
                         best_matches[col_type] = {'col': col, 'score': score}
-        
-        # flatten best_matches to dictionary
-        column_suggestions = {k: v['col'] for k, v in best_matches.items()}
-        
-        # convert to records +sanitize
-        sample_data = df_preview.to_dict('records')
-        sample_data = sanitize_for_json(sample_data)
-        
-        return jsonify({
-            'success': True,
-            'job_id': job_id,
-            'filename': saved_filename,
-            'columns': columns,
-            'suggestions': column_suggestions,
-            'sample_data': sample_data,
-            'row_count': row_count
-        })
-        
+                    else:
+                        if score < best_matches[col_type]['score']:
+                            best_matches[col_type] = {'col': col, 'score': score}
+            
+            column_suggestions = {k: v['col'] for k, v in best_matches.items()}
+            
+            # Convert to records and sanitize
+            sample_data = df_preview.to_dict('records')
+            sample_data = sanitize_for_json(sample_data)
+            
+            response_data = {
+                'success': True,
+                'job_id': job_id,
+                'filename': saved_filename,
+                'columns': columns,
+                'suggestions': column_suggestions,
+                'sample_data': sample_data,
+                'row_count': row_count
+            }
+            
+            print(f"[Upload] Success: {len(columns)} columns, {row_count} rows")
+            
+            return jsonify(response_data)
+            
+        except pd.errors.EmptyDataError:
+            return jsonify({'error': 'File is empty or has no data'}), 400
+        except pd.errors.ParserError as e:
+            return jsonify({'error': f'Failed to parse file: {str(e)}'}), 400
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return jsonify({'error': f'Failed to parse file: {str(e)}'}), 400
+            
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return jsonify({'error': f'Failed to parse file: {str(e)}'}), 400
+        return jsonify({'error': f'Upload failed: {str(e)}'}), 500
+
+
+# Add error handlers for common HTTP errors
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    """Handle file too large error"""
+    return jsonify({'error': 'File too large. Maximum upload size exceeded.'}), 413
+
+
+@app.errorhandler(500)
+def internal_server_error(error):
+    """Handle internal server error"""
+    return jsonify({'error': 'Internal server error. Please try again.'}), 500
+
+
+@app.errorhandler(400)
+def bad_request(error):
+    """Handle bad request error"""
+    return jsonify({'error': 'Bad request. Please check your input.'}), 400
 
 
 @app.route('/process', methods=['POST'])
@@ -330,7 +423,15 @@ def get_status(job_id):
         'error': job['error']
     }))
 
-
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Posit Connect"""
+    return jsonify({
+        'status': 'ok',
+        'upload_folder_exists': Config.UPLOAD_FOLDER.exists(),
+        'output_folder_exists': Config.OUTPUT_FOLDER.exists(),
+        'upload_folder_writable': os.access(Config.UPLOAD_FOLDER, os.W_OK) if Config.UPLOAD_FOLDER.exists() else False,
+    })
 @app.route('/viewer/<job_id>')
 def viewer(job_id):
     """interactive map viewer"""
@@ -598,6 +699,8 @@ def render_map(job_id):
     # optional export sizing (pixels). if omitted, we pick a high-res default.
     width_px = int(data.get('width_px', 3200))
     height_px = int(data.get('height_px', 2000))
+    outline_width = data.get('outline_width', 2.5)
+    outline_color = data.get('outline_color', '#000000')
     
     output_folder = Config.OUTPUT_FOLDER / job_id
     result = job['result']
@@ -619,6 +722,8 @@ def render_map(job_id):
             hail_max=result.get('hail_max', 1),
             width_px=width_px,
             height_px=height_px,
+            outline_width=outline_width,
+            outline_color=outline_color,
         )
         
         return send_file(
@@ -778,6 +883,8 @@ def generate_map_png(
     hail_max,
     width_px=3200,
     height_px=2000,
+    outline_width=2.5,
+    outline_color='#000000',
 ):
     """generate a PNG map with specified settings"""
     import matplotlib
@@ -858,9 +965,9 @@ def generate_map_png(
     if extent_minx >= extent_maxx or extent_miny >= extent_maxy:
         raise ValueError(f"Invalid bounds: [{extent_minx}, {extent_miny}, {extent_maxx}, {extent_maxy}]")
     
-    # add padding (5%)
-    pad_x = (extent_maxx - extent_minx) * 0.05
-    pad_y = (extent_maxy - extent_miny) * 0.05
+    # add padding (1%)
+    pad_x = (extent_maxx - extent_minx) * 0.01
+    pad_y = (extent_maxy - extent_miny) * 0.01
     extent_minx -= pad_x
     extent_maxx += pad_x
     extent_miny -= pad_y
@@ -907,7 +1014,6 @@ def generate_map_png(
     
     # plot footprint
     if show_footprint and footprint_3857 is not None and not footprint_3857.empty:
-        # check if Hail_Size column exists
         if 'Hail_Size' in footprint_3857.columns:
             footprint_3857.plot(
                 ax=ax,
@@ -915,18 +1021,16 @@ def generate_map_png(
                 cmap=cmap,
                 norm=norm,
                 alpha=opacity,
-                linewidth=0.3,
+                linewidth=0.1, # Keep footprint edges thin
                 edgecolor='#666666',
                 zorder=2,
             )
         else:
-            # fallback: plot with single color
+            # If no Hail_Size, it falls back to a single color
             footprint_3857.plot(
                 ax=ax,
                 color='#fd8d3c',
                 alpha=opacity,
-                linewidth=0.3,
-                edgecolor='#666666',
                 zorder=2,
             )
         print("[MapGen] Plotted footprint")
@@ -935,11 +1039,11 @@ def generate_map_png(
     if show_outline and outline_3857 is not None and not outline_3857.empty:
         outline_3857.boundary.plot(
             ax=ax,
-            color='black',
-            linewidth=2.5,
-            zorder=3,
+            color=outline_color,   # CHANGED: Use the variable
+            linewidth=outline_width, # CHANGED: Use the variable
+            zorder=5,              # Increased zorder to ensure it's on top
         )
-        print("[MapGen] Plotted outline")
+        print(f"[MapGen] Plotted outline with color {outline_color} and width {outline_width}")
     
     # plot points
     if show_points and points_3857 is not None and not points_3857.empty:
@@ -1109,6 +1213,7 @@ def generate_map_png(
         raise ValueError("Generated image is too small - rendering may have failed")
     
     return result
+
 
 if __name__ == '__main__':
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)
