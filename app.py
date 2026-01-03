@@ -689,7 +689,7 @@ def render_map(job_id):
     
     data = request.json or {}
     
-            # get parameters from request
+    # get parameters from request
     bounds = data.get('bounds')  # [minLon, minLat, maxLon, maxLat]
     basemap_id = data.get('basemap', 'carto_light')
     show_footprint = data.get('show_footprint', True)
@@ -701,6 +701,9 @@ def render_map(job_id):
     height_px = int(data.get('height_px', 2000))
     outline_width = data.get('outline_width', 2.5)
     outline_color = data.get('outline_color', '#000000')
+    # NEW: display mode and color map from viewer
+    display_mode = data.get('display_mode', 'cells')  # 'cells' or 'continuous'
+    color_map = data.get('color_map', 'ylOrRd')
     
     output_folder = Config.OUTPUT_FOLDER / job_id
     result = job['result']
@@ -724,6 +727,8 @@ def render_map(job_id):
             height_px=height_px,
             outline_width=outline_width,
             outline_color=outline_color,
+            display_mode=display_mode,
+            color_map=color_map,
         )
         
         return send_file(
@@ -885,6 +890,8 @@ def generate_map_png(
     height_px=2000,
     outline_width=2.5,
     outline_color='#000000',
+    display_mode='cells',
+    color_map='ylOrRd',
 ):
     """generate a PNG map with specified settings"""
     import matplotlib
@@ -952,7 +959,9 @@ def generate_map_png(
         raise ValueError("No data to render and no bounds provided")
     
     # determine extent in WGS84
-    if bounds and len(bounds) == 4 and all(b is not None for b in bounds):
+    bounds_from_viewer = bounds and len(bounds) == 4 and all(b is not None for b in bounds)
+    
+    if bounds_from_viewer:
         extent_minx, extent_miny, extent_maxx, extent_maxy = bounds
     elif footprint_gdf is not None and not footprint_gdf.empty:
         extent_minx, extent_miny, extent_maxx, extent_maxy = footprint_gdf.total_bounds
@@ -965,13 +974,15 @@ def generate_map_png(
     if extent_minx >= extent_maxx or extent_miny >= extent_maxy:
         raise ValueError(f"Invalid bounds: [{extent_minx}, {extent_miny}, {extent_maxx}, {extent_maxy}]")
     
-    # add padding (1%)
-    pad_x = (extent_maxx - extent_minx) * 0.01
-    pad_y = (extent_maxy - extent_miny) * 0.01
-    extent_minx -= pad_x
-    extent_maxx += pad_x
-    extent_miny -= pad_y
-    extent_maxy += pad_y
+    # Only add padding if bounds came from footprint (not from viewer)
+    # Viewer bounds should match exactly what the user sees
+    if not bounds_from_viewer:
+        pad_x = (extent_maxx - extent_minx) * 0.05
+        pad_y = (extent_maxy - extent_miny) * 0.05
+        extent_minx -= pad_x
+        extent_maxx += pad_x
+        extent_miny -= pad_y
+        extent_maxy += pad_y
     
     print(f"[MapGen] WGS84 extent: [{extent_minx:.4f}, {extent_miny:.4f}, {extent_maxx:.4f}, {extent_maxy:.4f}]")
     
@@ -1002,8 +1013,28 @@ def generate_map_png(
     fig_h_in = max(4, float(height_px) / dpi)
     fig, ax = plt.subplots(figsize=(fig_w_in, fig_h_in), dpi=dpi)
     
-    # color scale
-    cmap = plt.cm.YlOrRd
+    # Map viewer colormap names to matplotlib colormaps
+    COLORMAP_MAPPING = {
+        'ylOrRd': 'YlOrRd',
+        'viridis': 'viridis',
+        'plasma': 'plasma',
+        'inferno': 'inferno',
+        'turbo': 'turbo',
+        'blues': 'Blues',
+        'greens': 'Greens',
+        'rdYlGn': 'RdYlGn',
+        'spectral': 'Spectral',
+        'coolwarm': 'coolwarm',
+        'hot': 'hot',
+        'jet': 'jet',
+    }
+    
+    # Get the matplotlib colormap name
+    mpl_cmap_name = COLORMAP_MAPPING.get(color_map, 'YlOrRd')
+    cmap = plt.cm.get_cmap(mpl_cmap_name)
+    print(f"[MapGen] Using colormap: {mpl_cmap_name} (from viewer: {color_map})")
+    print(f"[MapGen] Display mode: {display_mode}")
+    
     vmin = hail_min if hail_min is not None else 0
     vmax = hail_max if hail_max is not None else 1
     if vmax <= vmin:
@@ -1015,16 +1046,79 @@ def generate_map_png(
     # plot footprint
     if show_footprint and footprint_3857 is not None and not footprint_3857.empty:
         if 'Hail_Size' in footprint_3857.columns:
-            footprint_3857.plot(
-                ax=ax,
-                column='Hail_Size',
-                cmap=cmap,
-                norm=norm,
-                alpha=opacity,
-                linewidth=0.1, # Keep footprint edges thin
-                edgecolor='#666666',
-                zorder=2,
-            )
+            if display_mode == 'continuous':
+                # CONTINUOUS MODE: Rasterize and apply Gaussian blur for smooth appearance
+                try:
+                    from scipy.ndimage import gaussian_filter
+                    import numpy as np
+                    from rasterio.features import rasterize
+                    from rasterio.transform import from_bounds
+                    
+                    # Use the map extent for consistent positioning
+                    rast_minx, rast_miny, rast_maxx, rast_maxy = ext_x1, ext_y1, ext_x2, ext_y2
+                    rast_width = max(400, int(width_px * 0.5))
+                    rast_height = max(300, int(height_px * 0.5))
+                    
+                    print(f"[MapGen] Rasterizing to {rast_width}x{rast_height}")
+                    
+                    # Create transform for rasterization
+                    transform = from_bounds(rast_minx, rast_miny, rast_maxx, rast_maxy, 
+                                           rast_width, rast_height)
+                    
+                    # Rasterize: create an array with hail values
+                    shapes = [(geom, val) for geom, val in zip(footprint_3857.geometry, 
+                                                                footprint_3857['Hail_Size'])]
+                    raster = rasterize(shapes, out_shape=(rast_height, rast_width), 
+                                       transform=transform, fill=0, dtype='float32')
+                    
+                    # Create binary mask from footprint boundary (1 = inside, 0 = outside)
+                    boundary_shapes = [(geom, 1) for geom in footprint_3857.geometry]
+                    boundary_mask = rasterize(boundary_shapes, out_shape=(rast_height, rast_width),
+                                              transform=transform, fill=0, dtype='uint8')
+                    
+                    print(f"[MapGen] Raster non-zero pixels: {np.count_nonzero(raster)}")
+                    
+                    # Apply Gaussian blur for smoothing
+                    sigma = max(3, min(rast_width, rast_height) // 40)
+                    smoothed = gaussian_filter(raster, sigma=sigma)
+                    
+                    # CLIP: Apply boundary mask to keep colors INSIDE footprint only
+                    # Set values outside the original boundary to 0
+                    smoothed = np.where(boundary_mask > 0, smoothed, 0)
+                    
+                    print(f"[MapGen] Smoothed (clipped) non-zero: {np.count_nonzero(smoothed)}")
+                    
+                    # Mask zero values for transparency
+                    masked = np.ma.masked_where(smoothed <= 0.001, smoothed)
+                    
+                    # Plot as image - rasterio uses origin='upper' (top-left)
+                    ax.imshow(masked, extent=[rast_minx, rast_maxx, rast_miny, rast_maxy], 
+                             origin='upper', cmap=cmap, norm=norm, alpha=opacity, 
+                             zorder=2, interpolation='bilinear', aspect='auto')
+                    
+                    print(f"[MapGen] Plotted footprint in CONTINUOUS mode (sigma={sigma})")
+                except Exception as e:
+                    import traceback
+                    traceback.print_exc()
+                    print(f"[MapGen] Continuous mode failed, falling back to cells: {e}")
+                    # Fallback to cells mode
+                    footprint_3857.plot(
+                        ax=ax, column='Hail_Size', cmap=cmap, norm=norm,
+                        alpha=opacity, linewidth=0, edgecolor='none', zorder=2,
+                    )
+            else:
+                # CELLS MODE: Plot as grid cells (polygons with thin borders)
+                footprint_3857.plot(
+                    ax=ax,
+                    column='Hail_Size',
+                    cmap=cmap,
+                    norm=norm,
+                    alpha=opacity,
+                    linewidth=0.1,
+                    edgecolor='#666666',
+                    zorder=2,
+                )
+                print("[MapGen] Plotted footprint in CELLS mode")
         else:
             # If no Hail_Size, it falls back to a single color
             footprint_3857.plot(

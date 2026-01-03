@@ -2,10 +2,10 @@
 
 {% block content %}
 <div id="pageRoot" data-max-upload-bytes="{{ max_upload_bytes }}" data-accepted-ext="{{ allowed_ext | join(',') }}">
-    
+
     <!-- Main Card -->
     <div class="bg-white main-card overflow-hidden">
-        
+
         <!-- Header Section -->
         <header class="header-gradient">
             <!-- Top Bar -->
@@ -13,17 +13,16 @@
                 <div class="flex items-center gap-6">
                     <!-- Logo -->
                     <div class="logo-container flex-shrink-0">
-                        <img 
-                            src="{{ url_for('static', filename='logo.png') }}" 
-                            alt="Hail Footprint Logo" 
+                        <img src="{{ url_for('static', filename='logo.png') }}" alt="Hail Footprint Logo"
                             class="h-24 lg:h-32 w-auto object-contain transition-transform duration-300 hover:scale-105"
-                            onerror="this.style.display='none'"
-                        >
+                            onerror="this.style.display='none'">
                     </div>
-                    
+
                     <!-- Divider -->
-                    <div class="hidden sm:block h-14 w-px bg-gradient-to-b from-transparent via-gray-300 to-transparent"></div>
-                    
+                    <div
+                        class="hidden sm:block h-14 w-px bg-gradient-to-b from-transparent via-gray-300 to-transparent">
+                    </div>
+
                     <!-- Title Block -->
                     <div class="space-y-2">
                         <h1 class="text-2xl lg:text-3xl font-bold text-black">
@@ -37,9 +36,11 @@
                 </div>
 
                 <!-- Status Badge -->
-                <div class="flex items-center gap-2.5 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-full shadow-sm">
+                <div
+                    class="flex items-center gap-2.5 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-full shadow-sm">
                     <span class="relative flex h-2.5 w-2.5">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span
+                            class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                         <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                     </span>
                     <span class="text-sm font-semibold text-emerald-700">Ready</span>
@@ -52,34 +53,32 @@
 
         <!-- Upload Section -->
         <section id="uploadSection" class="px-6 lg:px-12 py-10 bg-gradient-to-b from-gray-50/80 to-white">
-    
+
             <!-- Section Header - Left Aligned -->
             <div class="flex items-center gap-4 mb-8">
-                <div class="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-brand-blue/20 to-brand-accent/20 shadow-sm">
+                <div
+                    class="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-brand-blue/20 to-brand-accent/20 shadow-sm">
                     <i class="bi bi-database-add text-3xl text-brand-blue"></i>
                 </div>
                 <div>
                     <h2 class="text-2xl font-bold text-brand-dark tracking-wide">Data Upload</h2>
                 </div>
             </div>
-        
+
             <!-- Upload Area - Centered -->
             <div class="max-w-2xl mx-auto">
-                
+
                 <!-- Hidden File Input -->
-                <input 
-                    type="file" 
-                    id="fileInput" 
-                    class="hidden" 
-                    accept=".csv,.gpkg,.geojson,.shp"
-                >
+                <input type="file" id="fileInput" class="hidden" accept=".csv,.gpkg,.geojson,.shp">
 
                 <!-- File Pill (shown after upload) -->
                 <div id="filePill" class="hidden mb-8 animate-fade-in">
-                    <div class="flex items-center justify-between gap-4 p-4 bg-white border border-emerald-200 rounded-2xl shadow-sm shadow-emerald-100">
+                    <div
+                        class="flex items-center justify-between gap-4 p-4 bg-white border border-emerald-200 rounded-2xl shadow-sm shadow-emerald-100">
                         <div class="flex items-center gap-4">
                             <!-- File Icon -->
-                            <div class="w-20 h-20 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-md shadow-emerald-200">
+                            <div
+                                class="w-20 h-20 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-md shadow-emerald-200">
                                 <i class="bi bi-file-earmark-check text-white text-2xl"></i>
                             </div>
                             <!-- File Info -->
@@ -87,7 +86,8 @@
                                 <div class="font-semibold text-gray-800" id="filePillName">filename.csv</div>
                                 <div class="flex items-center gap-2 text-sm text-gray-500">
                                     <span id="filePillMeta" class="font-mono"></span>
-                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
+                                    <span
+                                        class="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
                                         <i class="bi bi-check-circle-fill text-[10px]"></i>
                                         Ready
                                     </span>
@@ -96,18 +96,14 @@
                         </div>
                         <!-- Actions -->
                         <div class="flex items-center gap-2">
-                            <button 
-                                id="changeFileBtn" 
-                                class="flex items-center gap-2 px-4 py-2 bg-gray-100 border border-gray-200 rounded-xl font-medium text-sm text-gray-600 hover:bg-gray-200 hover:border-gray-300 transition-all duration-200"
-                            >
+                            <button id="changeFileBtn"
+                                class="flex items-center gap-2 px-4 py-2 bg-gray-100 border border-gray-200 rounded-xl font-medium text-sm text-gray-600 hover:bg-gray-200 hover:border-gray-300 transition-all duration-200">
                                 <i class="bi bi-arrow-repeat"></i>
                                 Change
                             </button>
-                            <button 
-                                id="removeFileBtn" 
+                            <button id="removeFileBtn"
                                 class="flex items-center justify-center w-10 h-10 rounded-xl text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all duration-200"
-                                title="Remove file"
-                            >
+                                title="Remove file">
                                 <i class="bi bi-trash3"></i>
                             </button>
                         </div>
@@ -115,52 +111,58 @@
                 </div>
 
                 <!-- Dropzone -->
-                <div 
-                    id="dropzone" 
-                    class="dropzone group cursor-pointer bg-white border-2 border-dashed border-gray-300 hover:border-brand-blue hover:bg-brand-blue/5 rounded-2xl transition-all duration-300 ease-out relative overflow-hidden"
-                >
+                <div id="dropzone"
+                    class="dropzone group cursor-pointer bg-white border-2 border-dashed border-gray-300 hover:border-brand-blue hover:bg-brand-blue/5 rounded-2xl transition-all duration-300 ease-out relative overflow-hidden">
                     <div class="flex flex-col items-center py-12 px-8 text-center">
-                        
+
                         <!-- Icon -->
                         <div class="relative mb-5">
-                            <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-blue to-brand-accent flex items-center justify-center text-white shadow-xl shadow-brand-blue/25 transition-all duration-300 group-hover:scale-110 group-hover:shadow-2xl group-hover:shadow-brand-blue/30">
+                            <div
+                                class="w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-blue to-brand-accent flex items-center justify-center text-white shadow-xl shadow-brand-blue/25 transition-all duration-300 group-hover:scale-110 group-hover:shadow-2xl group-hover:shadow-brand-blue/30">
                                 <i class="bi bi-cloud-arrow-up text-4xl"></i>
                             </div>
-                            <div class="absolute -bottom-1 -right-1 w-7 h-7 bg-white rounded-full flex items-center justify-center shadow-lg border-2 border-gray-100">
+                            <div
+                                class="absolute -bottom-1 -right-1 w-7 h-7 bg-white rounded-full flex items-center justify-center shadow-lg border-2 border-gray-100">
                                 <i class="bi bi-plus-lg text-brand-blue font-bold"></i>
                             </div>
                         </div>
-                        
+
                         <!-- Text -->
                         <div class="mb-5">
                             <h3 class="text-lg font-bold text-brand-dark mb-1">
                                 Drop your file here
                             </h3>
                             <p class="text-sm text-gray-500">
-                                or <span class="text-brand-blue font-semibold cursor-pointer hover:underline">browse</span> to choose from your computer
+                                or <span
+                                    class="text-brand-blue font-semibold cursor-pointer hover:underline">browse</span>
+                                to choose from your computer
                             </p>
                         </div>
-                        
+
                         <!-- Supported Formats -->
                         <div class="flex flex-wrap items-center justify-center gap-2 mb-4">
-                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                            <div
+                                class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
                                 <i class="bi bi-filetype-csv text-gray-500"></i>
                                 <span class="text-xs font-semibold text-gray-600">CSV</span>
                             </div>
-                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                            <div
+                                class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
                                 <i class="bi bi-file-earmark text-gray-500"></i>
                                 <span class="text-xs font-semibold text-gray-600">GPKG</span>
                             </div>
-                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                            <div
+                                class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
                                 <i class="bi bi-braces text-gray-500"></i>
                                 <span class="text-xs font-semibold text-gray-600">GeoJSON</span>
                             </div>
-                            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                            <div
+                                class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
                                 <i class="bi bi-file-earmark text-gray-500"></i>
                                 <span class="text-xs font-semibold text-gray-600">SHP</span>
                             </div>
                         </div>
-                        
+
                         <div class="text-xs text-gray-400 flex items-center gap-1.5" id="fileHelp">
                             <i class="bi bi-info-circle"></i>
                             Maximum file size: {{ max_upload_mb }}MB
@@ -173,15 +175,19 @@
                                 <span class="tabular-nums">—</span>
                             </div>
                             <div class="h-2 w-full overflow-hidden rounded-full bg-gray-200">
-                                <div id="uploadProgressBar" class="h-full w-0 rounded-full bg-gradient-to-r from-brand-blue to-brand-accent transition-all duration-300"></div>
+                                <div id="uploadProgressBar"
+                                    class="h-full w-0 rounded-full bg-gradient-to-r from-brand-blue to-brand-accent transition-all duration-300">
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Drag Active Overlay -->
-                    <div id="dragOverlay" class="hidden absolute inset-0 bg-brand-blue/10 border-2 border-brand-blue rounded-2xl flex items-center justify-center backdrop-blur-sm z-10">
+                    <div id="dragOverlay"
+                        class="hidden absolute inset-0 bg-brand-blue/10 border-2 border-brand-blue rounded-2xl flex items-center justify-center backdrop-blur-sm z-10">
                         <div class="text-center">
-                            <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-brand-blue/20 flex items-center justify-center">
+                            <div
+                                class="w-16 h-16 mx-auto mb-3 rounded-full bg-brand-blue/20 flex items-center justify-center">
                                 <i class="bi bi-bullseye text-4xl text-brand-blue"></i>
                             </div>
                             <p class="font-bold text-brand-blue text-lg">Release to upload</p>
@@ -205,7 +211,7 @@
     <!-- Configuration Section -->
     <div id="configSection" class="config-section mt-0" style="display: none;">
         <div class="bg-white main-card mt-6">
-            
+
             <!-- Config Header -->
             <div class="config-header px-8 py-5 border-b border-gray-100">
                 <div class="flex items-center gap-3">
@@ -221,19 +227,20 @@
 
             <!-- Configuration Content -->
             <div class="p-8">
-                
+
                 <!-- Top Row: Settings + Data Preview -->
                 <div class="grid lg:grid-cols-12 gap-6 items-start">
-                    
+
                     <!-- Left: Settings Column -->
                     <div class="lg:col-span-4 space-y-6" id="leftConfigColumn">
-                        
+
                         <!-- Column Mapping -->
                         <div class="config-group">
                             <div class="config-group-header">
                                 <i class="bi bi-diagram-3 text-brand-blue"></i>
                                 <span>Column Mapping</span>
-                                <span class="ml-auto text-xs bg-brand-blue/10 text-brand-blue px-2 py-1 rounded-lg font-medium">Auto-detect</span>
+                                <span
+                                    class="ml-auto text-xs bg-brand-blue/10 text-brand-blue px-2 py-1 rounded-lg font-medium">Auto-detect</span>
                             </div>
                             <div class="space-y-4 p-5">
                                 <div>
@@ -260,25 +267,30 @@
                             <div class="space-y-4 p-5">
                                 <div>
                                     <label class="input-label">Event Name <span class="text-red-500">*</span></label>
-                                    <input id="eventName" type="text" placeholder="Storm_20240115" class="input-field font-mono" />
+                                    <input id="eventName" type="text" placeholder="Storm_20240115"
+                                        class="input-field font-mono" />
                                 </div>
-                                
+
                                 <div class="grid grid-cols-3 gap-3">
                                     <div>
                                         <label class="input-label text-[10px]">Group (km)</label>
-                                        <input id="groupingThreshold" type="number" value="30" min="1" max="100" step="1" class="input-field font-mono text-center" />
+                                        <input id="groupingThreshold" type="number" value="30" min="1" max="100"
+                                            step="1" class="input-field font-mono text-center" />
                                     </div>
                                     <div>
                                         <label class="input-label text-[10px]">Large buf</label>
-                                        <input id="largeBuffer" type="number" value="10" min="1" max="50" step="0.5" class="input-field font-mono text-center" />
+                                        <input id="largeBuffer" type="number" value="10" min="1" max="50" step="0.5"
+                                            class="input-field font-mono text-center" />
                                     </div>
                                     <div>
                                         <label class="input-label text-[10px]">Small buf</label>
-                                        <input id="smallBuffer" type="number" value="5" min="1" max="30" step="0.5" class="input-field font-mono text-center" />
+                                        <input id="smallBuffer" type="number" value="5" min="1" max="30" step="0.5"
+                                            class="input-field font-mono text-center" />
                                     </div>
                                 </div>
 
-                                <button id="processBtn" disabled class="submit-btn w-full text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 mt-2">
+                                <button id="processBtn" disabled
+                                    class="submit-btn w-full text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 mt-2">
                                     <i class="bi bi-play-fill"></i>
                                     Generate Footprint
                                 </button>
@@ -295,7 +307,9 @@
                             </div>
                             <div class="overflow-auto" id="previewTableContainer">
                                 <table class="w-full">
-                                    <thead id="previewThead" class="sticky top-0 bg-gray-50 text-xs uppercase tracking-wider text-gray-500"></thead>
+                                    <thead id="previewThead"
+                                        class="sticky top-0 bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
+                                    </thead>
                                     <tbody id="previewTbody" class="divide-y divide-gray-100 text-sm font-mono"></tbody>
                                 </table>
                             </div>
@@ -307,7 +321,9 @@
                 <div id="processingPanel" class="mt-6 processing-panel" style="display:none;">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-4">
-                            <div class="w-12 h-12 rounded-full border-[3px] border-amber-200 border-t-amber-500 animate-spin"></div>
+                            <div
+                                class="w-12 h-12 rounded-full border-[3px] border-amber-200 border-t-amber-500 animate-spin">
+                            </div>
                             <div>
                                 <div class="text-lg font-semibold text-amber-800">Processing Your Data</div>
                                 <div class="text-sm text-amber-600 font-mono" id="statusMessage">Initializing…</div>
@@ -316,20 +332,24 @@
                         <div class="text-4xl font-bold text-amber-700 font-mono" id="processingProgressLabel">0%</div>
                     </div>
                     <div class="mt-5 h-3 w-full overflow-hidden rounded-full bg-amber-100">
-                        <div id="processingProgressBar" class="h-full w-0 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-300"></div>
+                        <div id="processingProgressBar"
+                            class="h-full w-0 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-300">
+                        </div>
                     </div>
                 </div>
 
                 <!-- Results Panel (full width) -->
                 <div id="resultsPanel" class="mt-6 results-panel" style="display:none;">
-                    <div class="results-header flex items-center justify-between px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-100">
+                    <div
+                        class="results-header flex items-center justify-between px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-100">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
                                 <i class="bi bi-check-circle-fill text-green-600 text-xl"></i>
                             </div>
                             <div>
                                 <div class="text-lg font-semibold text-green-800">Results Ready</div>
-                                <div class="text-sm text-green-600">Your hail footprint has been generated successfully</div>
+                                <div class="text-sm text-green-600">Your hail footprint has been generated successfully
+                                </div>
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
@@ -339,21 +359,23 @@
                             <a id="downloadGeoJson" class="action-btn hidden" download>
                                 <i class="bi bi-filetype-json"></i> GeoJSON
                             </a>
-                            <a href="#" id="openViewerNewTab" class="action-btn bg-green-600 text-white border-green-600 hover:bg-green-700">
+                            <a href="#" id="openViewerNewTab"
+                                class="action-btn bg-green-600 text-white border-green-600 hover:bg-green-700">
                                 <i class="bi bi-box-arrow-up-right"></i> Open Map
                             </a>
                         </div>
                     </div>
-                    
+
                     <div class="p-6">
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="resultsSummaryCards">
                             <!-- Summary cards populated dynamically -->
                         </div>
-                        
+
                         <!-- Detailed Summary Table -->
                         <div class="mt-6 bg-gray-50 rounded-xl overflow-hidden">
                             <div class="px-5 py-3 border-b border-gray-200 bg-gray-100">
-                                <div class="text-xs font-semibold uppercase tracking-wider text-gray-500">Detailed Summary</div>
+                                <div class="text-xs font-semibold uppercase tracking-wider text-gray-500">Detailed
+                                    Summary</div>
                             </div>
                             <table class="w-full text-sm">
                                 <tbody id="resultsSummaryBody" class="divide-y divide-gray-200">
@@ -370,7 +392,7 @@
     <!-- Viewer Section -->
     <div id="viewerSection" class="viewer-section mt-0" style="display: none;">
         <div class="bg-white main-card mt-6">
-            
+
             <!-- Viewer Header -->
             <div class="flex items-center justify-between px-8 py-5 border-b border-gray-100">
                 <div class="flex items-center gap-3">
@@ -397,11 +419,14 @@
 
             <!-- Map Container -->
             <div id="map-container" class="relative p-4">
-                
+
                 <!-- Loading Overlay -->
-                <div id="loading-overlay" class="absolute inset-4 z-[2000] flex items-center justify-center bg-white/95 rounded-2xl">
+                <div id="loading-overlay"
+                    class="absolute inset-4 z-[2000] flex items-center justify-center bg-white/95 rounded-2xl">
                     <div class="text-center">
-                        <div class="w-12 h-12 mx-auto rounded-full border-3 border-gray-200 border-t-brand-blue animate-spin"></div>
+                        <div
+                            class="w-12 h-12 mx-auto rounded-full border-3 border-gray-200 border-t-brand-blue animate-spin">
+                        </div>
                         <div class="mt-4 font-semibold text-brand-dark">Loading Map</div>
                         <div class="text-xs text-gray-500">Fetching data…</div>
                     </div>
@@ -425,12 +450,15 @@
 
                 <!-- Control Panel -->
                 <div id="controlPanel" class="absolute right-8 top-8 z-[1000] w-[260px] control-panel">
-                    <div id="panelHeader" class="flex cursor-pointer items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/80">
-                        <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                    <div id="panelHeader"
+                        class="flex cursor-pointer items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/80">
+                        <div
+                            class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-600">
                             <i class="bi bi-sliders2"></i>
                             Controls
                         </div>
-                        <button id="panelToggle" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-200 transition">
+                        <button id="panelToggle"
+                            class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-200 transition">
                             <i class="bi bi-chevron-right text-xs" id="toggleIcon"></i>
                         </button>
                     </div>
@@ -438,35 +466,128 @@
                     <div id="panelContent" class="space-y-4 p-4">
                         <!-- Layers -->
                         <div>
-                            <div class="mb-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Layers</div>
-                            <div class="space-y-2">
-                                <label class="flex cursor-pointer items-center justify-between rounded-lg p-2 hover:bg-gray-50 transition">
+                            <div class="mb-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Layers
+                            </div>
+                            <div class="space-y-1">
+                                <!-- Hail Intensity Layer -->
+                                <label
+                                    class="flex cursor-pointer items-center justify-between rounded-lg p-2 hover:bg-gray-50 transition">
                                     <span class="text-sm">Hail intensity</span>
                                     <input id="showFootprint" type="checkbox" checked class="checkbox">
                                 </label>
-                                <label class="flex cursor-pointer items-center justify-between rounded-lg p-2 hover:bg-gray-50 transition">
+
+                                <!-- Footprint Options (nested) -->
+                                <div id="footprintOptions" class="ml-4 pl-2 border-l-2 border-gray-200 space-y-2">
+                                    <div class="flex items-center justify-between py-1">
+                                        <span class="text-xs text-gray-600">Display</span>
+                                        <select id="displayMode"
+                                            class="w-28 px-2 py-1 text-xs border border-gray-300 rounded bg-white">
+                                            <option value="cells">Grid Cells</option>
+                                            <option value="continuous">Continuous</option>
+                                        </select>
+                                    </div>
+                                    <div id="cellOptions" class="space-y-1">
+                                        <label class="flex cursor-pointer items-center justify-between py-1">
+                                            <span class="text-xs text-gray-600">Cell borders</span>
+                                            <input id="showCellBorders" type="checkbox" checked class="checkbox">
+                                        </label>
+                                        <div id="cellBorderOptions" class="pl-2 space-y-1">
+                                            <div class="flex items-center justify-between py-1">
+                                                <span class="text-xs text-gray-500">Width</span>
+                                                <input id="cellBorderWidth" type="number" min="0.1" max="3" step="0.1"
+                                                    value="0.5"
+                                                    class="w-16 px-2 py-1 text-xs border border-gray-300 rounded bg-white">
+                                            </div>
+                                            <div class="flex items-center justify-between py-1">
+                                                <span class="text-xs text-gray-500">Color</span>
+                                                <input id="cellBorderColor" type="color" value="#666666"
+                                                    class="w-16 h-6 border border-gray-300 rounded cursor-pointer">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="continuousOptions" class="space-y-1" style="display: none;">
+                                        <div class="flex items-center justify-between py-1">
+                                            <span class="text-xs text-gray-600">Smoothness</span>
+                                            <input id="smoothnessLevel" type="range" min="1" max="5" value="3"
+                                                class="w-20 cursor-pointer">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Outline Layer -->
+                                <label
+                                    class="flex cursor-pointer items-center justify-between rounded-lg p-2 hover:bg-gray-50 transition">
                                     <span class="text-sm">Outline</span>
                                     <input id="showOutline" type="checkbox" checked class="checkbox">
                                 </label>
-                                <label class="flex cursor-pointer items-center justify-between rounded-lg p-2 hover:bg-gray-50 transition">
+
+                                <!-- Outline Options (nested) -->
+                                <div id="outlineOptions" class="ml-4 pl-2 border-l-2 border-gray-200 space-y-1">
+                                    <div class="flex items-center justify-between py-1">
+                                        <span class="text-xs text-gray-600">Width</span>
+                                        <input id="outlineWidth" type="number" min="0.5" max="10" step="0.5" value="2.5"
+                                            class="w-16 px-2 py-1 text-xs border border-gray-300 rounded bg-white">
+                                    </div>
+                                    <div class="flex items-center justify-between py-1">
+                                        <span class="text-xs text-gray-600">Color</span>
+                                        <input id="outlineColor" type="color" value="#000000"
+                                            class="w-16 h-6 border border-gray-300 rounded cursor-pointer">
+                                    </div>
+                                </div>
+
+                                <!-- Points Layer -->
+                                <label
+                                    class="flex cursor-pointer items-center justify-between rounded-lg p-2 hover:bg-gray-50 transition">
                                     <span class="text-sm">Points</span>
                                     <input id="showPoints" type="checkbox" class="checkbox">
                                 </label>
                             </div>
                         </div>
 
+                        <!-- Color Map -->
+                        <div class="border-t border-gray-100 pt-4">
+                            <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Color Map
+                            </div>
+                            <select id="colorMapSelect" class="input-select text-sm w-full">
+                                <optgroup label="Sequential">
+                                    <option value="ylOrRd" selected>Yellow-Orange-Red</option>
+                                    <option value="blues">Blues</option>
+                                    <option value="greens">Greens</option>
+                                </optgroup>
+                                <optgroup label="Perceptually Uniform">
+                                    <option value="viridis">Viridis</option>
+                                    <option value="plasma">Plasma</option>
+                                    <option value="inferno">Inferno</option>
+                                    <option value="turbo">Turbo</option>
+                                </optgroup>
+                                <optgroup label="Diverging">
+                                    <option value="rdYlGn">Red-Yellow-Green</option>
+                                    <option value="spectral">Spectral</option>
+                                    <option value="coolwarm">Cool-Warm</option>
+                                </optgroup>
+                                <optgroup label="Classic">
+                                    <option value="jet">Jet</option>
+                                    <option value="hot">Hot</option>
+                                </optgroup>
+                            </select>
+                            <div id="colorMapPreview" class="h-3 mt-2 rounded border border-gray-200"></div>
+                        </div>
+
                         <!-- Opacity -->
                         <div class="border-t border-gray-100 pt-4">
                             <div class="flex items-center justify-between mb-2">
-                                <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Opacity</span>
+                                <span
+                                    class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Opacity</span>
                                 <span class="text-xs font-semibold text-gray-700" id="opacityValue">0.6</span>
                             </div>
-                            <input id="opacitySlider" type="range" min="0.1" max="1" step="0.1" value="0.6" class="slider">
+                            <input id="opacitySlider" type="range" min="0.1" max="1" step="0.1" value="0.6"
+                                class="slider">
                         </div>
 
                         <!-- Basemap -->
                         <div class="border-t border-gray-100 pt-4">
-                            <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Basemap</div>
+                            <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Basemap
+                            </div>
                             <select id="basemapSelect" class="input-select text-sm">
                                 <optgroup label="Light">
                                     <option value="carto_light" selected>Carto Light</option>
@@ -503,8 +624,10 @@
 
                 <!-- Legend -->
                 <div class="absolute bottom-8 right-8 z-[1000] legend-box">
-                    <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Hail Size (cm)</div>
-                    <div class="h-2.5 w-36 rounded-full bg-gradient-to-r from-[#ffffb2] via-[#fd8d3c] to-[#bd0026]"></div>
+                    <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Hail Size (cm)
+                    </div>
+                    <div class="h-2.5 w-36 rounded-full bg-gradient-to-r from-[#ffffb2] via-[#fd8d3c] to-[#bd0026]">
+                    </div>
                     <div class="mt-1 flex justify-between text-[10px] text-gray-500 font-mono">
                         <span id="legendMin">0</span>
                         <span id="legendMax">1</span>
@@ -529,6 +652,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/viewer.js') }}"></script>
-<script src="{{ url_for('static', filename='js/index.js') }}"></script>
+<script src="{{ url_for('static', filename='js/viewer.js') }}?v={{ range(1, 10000) | random }}"></script>
+<script src="{{ url_for('static', filename='js/index.js') }}?v={{ range(1, 10000) | random }}"></script>
 {% endblock %}

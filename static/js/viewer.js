@@ -1,8 +1,8 @@
 // Inline-capable Leaflet viewer for a completed processing job.
 (function () {
   "use strict";
-  
-  function el(id) { 
+
+  function el(id) {
     return document.getElementById(id);
   }
 
@@ -180,187 +180,21 @@
     }
   };
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // INJECT CSS
-  // ═══════════════════════════════════════════════════════════════════════════
-  function injectStyles() {
-    if (document.getElementById('hail-viewer-styles')) return;
-    const style = document.createElement('style');
-    style.id = 'hail-viewer-styles';
-    style.innerHTML = `
-      /* Canvas smooth layer */
-      .hf-smooth-canvas {
-        image-rendering: auto;
-        image-rendering: smooth;
-        image-rendering: high-quality;
-      }
-      
-      /* Color map preview gradient */
-      .colormap-preview {
-        height: 12px;
-        border-radius: 3px;
-        margin-top: 4px;
-        border: 1px solid rgba(0,0,0,0.15);
-      }
-    `;
-    document.head.appendChild(style);
-  }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // INJECT MISSING ELEMENTS
-  // ═══════════════════════════════════════════════════════════════════════════
-  function ensureFootprintOptionsExist() {
-    if (document.getElementById('footprintOptions')) return true;
-    
-    const showFootprintCheckbox = document.getElementById('showFootprint');
-    if (!showFootprintCheckbox) return false;
-    
-    const label = showFootprintCheckbox.closest('label');
-    if (!label) return false;
-    
-    const optionsDiv = document.createElement('div');
-    optionsDiv.id = 'footprintOptions';
-    optionsDiv.className = 'ml-4 space-y-2 pl-2 border-l-2 border-gray-200 mt-2';
-    optionsDiv.innerHTML = `
-      <div class="flex items-center justify-between py-1">
-        <span class="text-xs text-gray-600">Display</span>
-        <select id="displayMode" class="w-28 px-2 py-1 text-xs border border-gray-300 rounded bg-white">
-          <option value="cells">Grid Cells</option>
-          <option value="continuous">Continuous</option>
-        </select>
-      </div>
-      <div id="cellOptions">
-        <label class="flex cursor-pointer items-center justify-between py-1">
-          <span class="text-xs text-gray-600">Cell borders</span>
-          <input id="showCellBorders" type="checkbox" checked class="checkbox">
-        </label>
-        <div id="cellBorderOptions">
-          <div class="flex items-center justify-between py-1">
-            <span class="text-xs text-gray-600">Border width</span>
-            <input id="cellBorderWidth" type="number" min="0.1" max="3" step="0.1" value="0.5" 
-                   class="w-16 px-2 py-1 text-xs border border-gray-300 rounded bg-white">
-          </div>
-          <div class="flex items-center justify-between py-1">
-            <span class="text-xs text-gray-600">Border color</span>
-            <input id="cellBorderColor" type="color" value="#666666" 
-                   class="w-16 h-7 border border-gray-300 rounded cursor-pointer">
-          </div>
-        </div>
-      </div>
-      <div id="continuousOptions" style="display: none;">
-        <div class="flex items-center justify-between py-1">
-          <span class="text-xs text-gray-600">Smoothness</span>
-          <input id="smoothnessLevel" type="range" min="1" max="5" value="3" 
-                 class="w-20 cursor-pointer">
-        </div>
-      </div>
-    `;
-    
-    label.insertAdjacentElement('afterend', optionsDiv);
-    return true;
-  }
 
-  function ensureOutlineOptionsExist() {
-    if (document.getElementById('outlineOptions')) return true;
-    
-    const showOutlineCheckbox = document.getElementById('showOutline');
-    if (!showOutlineCheckbox) return false;
-    
-    const label = showOutlineCheckbox.closest('label');
-    if (!label) return false;
-    
-    const optionsDiv = document.createElement('div');
-    optionsDiv.id = 'outlineOptions';
-    optionsDiv.className = 'ml-4 space-y-2 pl-2 border-l-2 border-gray-200 mt-2';
-    optionsDiv.innerHTML = `
-      <div class="flex items-center justify-between py-1">
-        <span class="text-xs text-gray-600">Width</span>
-        <input id="outlineWidth" type="number" min="0.5" max="10" step="0.5" value="2.5" 
-               class="w-16 px-2 py-1 text-xs border border-gray-300 rounded bg-white">
-      </div>
-      <div class="flex items-center justify-between py-1">
-        <span class="text-xs text-gray-600">Color</span>
-        <input id="outlineColor" type="color" value="#000000" 
-               class="w-16 h-7 border border-gray-300 rounded cursor-pointer">
-      </div>
-    `;
-    
-    label.insertAdjacentElement('afterend', optionsDiv);
-    return true;
-  }
 
-  function ensureColorMapSelectorExists() {
-    if (document.getElementById('colorMapSelector')) return true;
-    
-    // Find the opacity slider container or basemap selector to insert before
-    const opacitySlider = document.getElementById('opacitySlider');
-    const basemapSelect = document.getElementById('basemapSelect');
-    
-    let insertTarget = null;
-    let insertPosition = 'afterend';
-    
-    // Try to find the opacity slider's parent container
-    if (opacitySlider) {
-      insertTarget = opacitySlider.closest('.flex, .py-1, div');
-      if (insertTarget) {
-        // Go up to find a suitable container
-        while (insertTarget && !insertTarget.classList.contains('space-y-2') && insertTarget.parentElement) {
-          const parent = insertTarget.parentElement;
-          if (parent.classList.contains('space-y-2') || parent.id === 'controlPanel') {
-            break;
-          }
-          insertTarget = parent;
-        }
-      }
-    }
-    
-    // Fallback: insert before basemap if we can find it
-    if (!insertTarget && basemapSelect) {
-      insertTarget = basemapSelect.closest('.flex, .py-1, div');
-      insertPosition = 'beforebegin';
-    }
-    
-    if (!insertTarget) return false;
-    
-    const colorMapDiv = document.createElement('div');
-    colorMapDiv.id = 'colorMapSelector';
-    colorMapDiv.className = 'py-2 border-t border-gray-200 mt-2';
-    
-    // Build options HTML
-    let optionsHtml = '';
-    for (const [key, cmap] of Object.entries(COLOR_MAPS)) {
-      optionsHtml += `<option value="${key}">${cmap.name}</option>`;
-    }
-    
-    colorMapDiv.innerHTML = `
-      <div class="flex items-center justify-between py-1">
-        <span class="text-xs text-gray-600 font-medium">Color Map</span>
-        <select id="colorMapSelect" class="w-36 px-2 py-1 text-xs border border-gray-300 rounded bg-white">
-          ${optionsHtml}
-        </select>
-      </div>
-      <div id="colorMapPreview" class="colormap-preview"></div>
-    `;
-    
-    insertTarget.insertAdjacentElement(insertPosition, colorMapDiv);
-    
-    // Update preview immediately
-    updateColorMapPreview('ylOrRd');
-    
-    return true;
-  }
 
   function updateColorMapPreview(colorMapId) {
     const preview = document.getElementById('colorMapPreview');
     if (!preview) return;
-    
+
     const cmap = COLOR_MAPS[colorMapId];
     if (!cmap) return;
-    
-    const gradientStops = cmap.stops.map(s => 
+
+    const gradientStops = cmap.stops.map(s =>
       `rgb(${s.color[0]},${s.color[1]},${s.color[2]}) ${s.pos * 100}%`
     ).join(', ');
-    
+
     preview.style.background = `linear-gradient(to right, ${gradientStops})`;
   }
 
@@ -369,18 +203,14 @@
     if (!jobId) throw new Error('Missing jobId');
     if (!window.L) throw new Error('Leaflet not loaded');
 
-    injectStyles();
+
 
     const mapEl = el('map');
     const mapContainerEl = el('map-container');
     if (!mapEl || !mapContainerEl) throw new Error('Map container not found in DOM');
 
-    // Ensure options exist
-    ensureFootprintOptionsExist();
-    ensureOutlineOptionsExist();
-    
-    // Delay colormap selector to ensure other elements exist
-    setTimeout(() => ensureColorMapSelectorExists(), 100);
+    // Initialize color map preview
+    updateColorMapPreview('ylOrRd');
 
     // ═══════════════════════════════════════════════════════════════════════════
     // UI ELEMENTS
@@ -410,32 +240,45 @@
     // OPTIONS VISIBILITY
     // ═══════════════════════════════════════════════════════════════════════════
     function updateFootprintOptionsVisibility() {
-      if (!footprintOptions) return;
-      footprintOptions.style.display = showFootprint?.checked ? 'block' : 'none';
+      const fpBtn = document.getElementById('showFootprint');
+      const fpOpts = document.getElementById('footprintOptions');
+      if (fpOpts && fpBtn) {
+        fpOpts.style.display = fpBtn.checked ? 'block' : 'none';
+      }
     }
 
     function updateDisplayModeOptions() {
-      const mode = displayModeSelect?.value || 'cells';
-      const cellOpts = el('cellOptions');
-      const contOpts = el('continuousOptions');
+      const dMode = document.getElementById('displayMode');
+      const mode = dMode?.value || 'cells';
+      const cellOpts = document.getElementById('cellOptions');
+      const contOpts = document.getElementById('continuousOptions');
       if (cellOpts) cellOpts.style.display = mode === 'cells' ? 'block' : 'none';
       if (contOpts) contOpts.style.display = mode === 'continuous' ? 'block' : 'none';
     }
 
     function updateCellBorderOptionsVisibility() {
-      if (!cellBorderOptions) return;
-      cellBorderOptions.style.display = showCellBorders?.checked ? 'block' : 'none';
+      const cbBtn = document.getElementById('showCellBorders');
+      const cbOpts = document.getElementById('cellBorderOptions');
+      if (cbOpts && cbBtn) {
+        cbOpts.style.display = cbBtn.checked ? 'block' : 'none';
+      }
     }
 
     function updateOutlineOptionsVisibility() {
-      if (!outlineOptions) return;
-      outlineOptions.style.display = showOutline?.checked ? 'block' : 'none';
+      const olBtn = document.getElementById('showOutline');
+      const olOpts = document.getElementById('outlineOptions');
+      if (olOpts && olBtn) {
+        olOpts.style.display = olBtn.checked ? 'block' : 'none';
+      }
     }
 
-    updateFootprintOptionsVisibility();
-    updateDisplayModeOptions();
-    updateCellBorderOptionsVisibility();
-    updateOutlineOptionsVisibility();
+    // Force initial update
+    setTimeout(() => {
+      updateFootprintOptionsVisibility();
+      updateDisplayModeOptions();
+      updateCellBorderOptionsVisibility();
+      updateOutlineOptionsVisibility();
+    }, 50);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PARSE RESULT DATA
@@ -462,9 +305,9 @@
       ? resultData.center
       : [(bounds[1] + bounds[3]) / 2, (bounds[0] + bounds[2]) / 2];
 
-    const map = L.map('map', { 
-      center, 
-      zoom: 8, 
+    const map = L.map('map', {
+      center,
+      zoom: 8,
       zoomControl: true,
       renderer: L.svg({ padding: 1.0 })
     });
@@ -504,10 +347,10 @@
       const colorStops = getColorStops();
       const range = (hailMax - hailMin) || 1;
       const normalized = Math.max(0, Math.min(1, (value - hailMin) / range));
-      
+
       let lower = colorStops[0];
       let upper = colorStops[colorStops.length - 1];
-      
+
       for (let i = 0; i < colorStops.length - 1; i++) {
         if (normalized >= colorStops[i].pos && normalized <= colorStops[i + 1].pos) {
           lower = colorStops[i];
@@ -515,13 +358,13 @@
           break;
         }
       }
-      
+
       const range2 = upper.pos - lower.pos || 1;
       const t = (normalized - lower.pos) / range2;
       const r = Math.round(lower.color[0] + t * (upper.color[0] - lower.color[0]));
       const g = Math.round(lower.color[1] + t * (upper.color[1] - lower.color[1]));
       const b = Math.round(lower.color[2] + t * (upper.color[2] - lower.color[2]));
-      
+
       return { r, g, b };
     }
 
@@ -533,12 +376,12 @@
     function updateLegendGradient() {
       const legendGradient = el('legendGradient');
       if (!legendGradient) return;
-      
+
       const colorStops = getColorStops();
-      const gradientStops = colorStops.map(s => 
+      const gradientStops = colorStops.map(s =>
         `rgb(${s.color[0]},${s.color[1]},${s.color[2]}) ${s.pos * 100}%`
       ).join(', ');
-      
+
       legendGradient.style.background = `linear-gradient(to top, ${gradientStops})`;
     }
 
@@ -553,12 +396,12 @@
     let displayMode = 'cells';
     let smoothness = 3;
     let geoJsonData = null;
-    
+
     // Cell border settings
     let showCellBordersEnabled = true;
     let cellBorderWidth = 0.5;
     let cellBorderColor = '#666666';
-    
+
     // Outline settings
     let outlineWidth = 2.5;
     let outlineColor = '#000000';
@@ -572,72 +415,72 @@
     // CANVAS CONTINUOUS LAYER
     // ═══════════════════════════════════════════════════════════════════════════
     const CanvasContinuousLayer = L.Layer.extend({
-      initialize: function(geojson, options) {
+      initialize: function (geojson, options) {
         this._geojson = geojson;
         this._options = options || {};
         this._canvas = null;
       },
-      
-      onAdd: function(map) {
+
+      onAdd: function (map) {
         this._map = map;
         this._canvas = L.DomUtil.create('canvas', 'hf-smooth-canvas leaflet-layer');
-        
+
         const pane = map.getPane('overlayPane');
         pane.appendChild(this._canvas);
-        
+
         map.on('moveend', this._update, this);
         map.on('zoomend', this._update, this);
-        
+
         this._update();
       },
-      
-      onRemove: function(map) {
+
+      onRemove: function (map) {
         if (this._canvas && this._canvas.parentNode) {
           this._canvas.parentNode.removeChild(this._canvas);
         }
         map.off('moveend', this._update, this);
         map.off('zoomend', this._update, this);
       },
-      
-      setOpacity: function(opacity) {
+
+      setOpacity: function (opacity) {
         this._options.opacity = opacity;
         if (this._canvas) {
           this._canvas.style.opacity = opacity;
         }
       },
-      
-      refresh: function() {
+
+      refresh: function () {
         this._update();
       },
-      
-      _update: function() {
+
+      _update: function () {
         if (!this._map || !this._geojson) return;
-        
+
         const map = this._map;
         const size = map.getSize();
         const topLeft = map.containerPointToLayerPoint([0, 0]);
-        
+
         L.DomUtil.setPosition(this._canvas, topLeft);
         this._canvas.width = size.x;
         this._canvas.height = size.y;
         this._canvas.style.opacity = this._options.opacity || 0.6;
-        
+
         const ctx = this._canvas.getContext('2d');
         ctx.clearRect(0, 0, size.x, size.y);
-        
+
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
-        
+
         // Collect cell data
         const cells = [];
         const features = this._geojson.features || [];
-        
+
         for (const feature of features) {
           if (!feature.geometry || feature.geometry.type !== 'Polygon') continue;
-          
+
           const coords = feature.geometry.coordinates[0];
           const value = feature.properties?.Hail_Size || 0;
-          
+
           // Get center of cell
           let cx = 0, cy = 0;
           for (const coord of coords) {
@@ -646,15 +489,15 @@
           }
           cx /= coords.length;
           cy /= coords.length;
-          
+
           const point = map.latLngToContainerPoint([cy, cx]);
-          
+
           // Estimate cell size in pixels
           const p1 = map.latLngToContainerPoint([coords[0][1], coords[0][0]]);
           const p2 = map.latLngToContainerPoint([coords[2][1], coords[2][0]]);
           const cellWidth = Math.abs(p2.x - p1.x);
           const cellHeight = Math.abs(p2.y - p1.y);
-          
+
           cells.push({
             x: point.x,
             y: point.y,
@@ -663,30 +506,30 @@
             value: value
           });
         }
-        
+
         const smoothLevel = this._options.smoothness || 3;
-        
+
         // Draw cells with radial gradients for smooth blending
         for (const cell of cells) {
           const color = getColorRGB(cell.value);
           const radius = Math.max(cell.width, cell.height) * (1 + smoothLevel * 0.3);
-          
+
           const gradient = ctx.createRadialGradient(
             cell.x, cell.y, 0,
             cell.x, cell.y, radius
           );
-          
+
           gradient.addColorStop(0, `rgba(${color.r},${color.g},${color.b},1)`);
           gradient.addColorStop(0.5, `rgba(${color.r},${color.g},${color.b},0.8)`);
           gradient.addColorStop(0.8, `rgba(${color.r},${color.g},${color.b},0.3)`);
           gradient.addColorStop(1, `rgba(${color.r},${color.g},${color.b},0)`);
-          
+
           ctx.fillStyle = gradient;
           ctx.beginPath();
           ctx.arc(cell.x, cell.y, radius, 0, Math.PI * 2);
           ctx.fill();
         }
-        
+
         // Additional blur for extra smoothing
         const blurRadius = smoothLevel * 2;
         if (blurRadius > 0) {
@@ -718,7 +561,7 @@
         });
       }
       const cached = featureStyles.get(feature);
-      
+
       if (displayMode === 'continuous') {
         // CONTINUOUS MODE: Hide SVG layer entirely (canvas takes over)
         return {
@@ -765,7 +608,7 @@
             }
           });
         }
-        
+
         // Create/update canvas layer
         if (!canvasSmoothLayer && geoJsonData) {
           canvasSmoothLayer = new CanvasContinuousLayer(geoJsonData, {
@@ -781,7 +624,7 @@
           canvasSmoothLayer._options.smoothness = smoothness;
           canvasSmoothLayer._update();
         }
-        
+
       } else {
         // Grid Cells mode
         if (canvasSmoothLayer && map.hasLayer(canvasSmoothLayer)) {
@@ -803,7 +646,7 @@
     function refreshColorsAndStyles() {
       // Clear cached colors
       clearFeatureStyleCache();
-      
+
       // Re-cache colors with new colormap
       if (footprintLayer) {
         footprintLayer.eachLayer(layer => {
@@ -814,13 +657,13 @@
           }
         });
       }
-      
+
       // Update legend gradient
       updateLegendGradient();
-      
+
       // Refresh the layers
       refreshLayerStyles();
-      
+
       // If canvas layer exists, force redraw
       if (canvasSmoothLayer && map.hasLayer(canvasSmoothLayer)) {
         canvasSmoothLayer.refresh();
@@ -851,11 +694,11 @@
     // ═══════════════════════════════════════════════════════════════════════════
     // EVENT LISTENERS
     // ═══════════════════════════════════════════════════════════════════════════
-    
+
     // Footprint toggle
     showFootprint?.addEventListener('change', function () {
       updateFootprintOptionsVisibility();
-      
+
       if (this.checked) {
         if (displayMode === 'continuous' && canvasSmoothLayer) {
           canvasSmoothLayer.addTo(map);
@@ -909,7 +752,7 @@
       if (e.target.id === 'cellBorderColor') cellBorderColor = e.target.value;
       refreshLayerStyles();
     }
-    
+
     document.addEventListener('input', (e) => {
       if (['cellBorderWidth', 'cellBorderColor'].includes(e.target.id)) updateCellSettings(e);
     });
@@ -1006,14 +849,14 @@
         if (footprintRes.ok) {
           const data = await footprintRes.json();
           geoJsonData = data;
-          
+
           if (data.features?.length) {
             footprintLayer = L.geoJSON(data, {
-              style: getFeatureStyle, 
+              style: getFeatureStyle,
               smoothFactor: 0.5,
               onEachFeature: (feature, layer) => {
                 getFeatureStyle(feature);
-                
+
                 layer.on({
                   mouseover: () => {
                     const val = feature.properties?.Hail_Size || 0;
@@ -1031,10 +874,10 @@
                 });
               }
             });
-            
+
             footprintLayer.addTo(map);
             refreshLayerStyles();
-            
+
             // Update legend with initial colormap
             updateLegendGradient();
           }
@@ -1045,13 +888,13 @@
         if (outlineRes.ok) {
           const data = await outlineRes.json();
           if (data.features?.length) {
-            outlineLayer = L.geoJSON(data, { 
-              style: { 
-                fill: false, 
-                weight: outlineWidth, 
-                color: outlineColor, 
-                opacity: 1 
-              } 
+            outlineLayer = L.geoJSON(data, {
+              style: {
+                fill: false,
+                weight: outlineWidth,
+                color: outlineColor,
+                opacity: 1
+              }
             }).addTo(map);
           }
         }
@@ -1078,10 +921,9 @@
 
         const loading = el('loading-overlay');
         if (loading) loading.style.display = 'none';
-        
+
         // Initialize colormap selector after a delay
         setTimeout(() => {
-          ensureColorMapSelectorExists();
           updateLegendGradient();
         }, 200);
 
@@ -1132,10 +974,10 @@
         window.HailUI?.toast?.('Export already in progress…', { type: 'warning', title: 'Please wait' });
         return;
       }
-      
+
       const exportBtn = el('exportCurrentViewBtn');
       const originalContent = exportBtn?.innerHTML;
-      
+
       try {
         isExporting = true;
         if (exportBtn) {
@@ -1143,9 +985,9 @@
           exportBtn.innerHTML = '<i class="bi bi-hourglass-split animate-spin"></i> Generating…';
         }
         window.HailUI?.toast?.('Generating high-quality map…', { type: 'info', title: 'Export' });
-        
+
         const settings = getCurrentSettings();
-        
+
         const exportData = {
           bounds: getCurrentBounds(),
           basemap: currentBasemapId,
@@ -1164,7 +1006,7 @@
           width_px: 3200,
           height_px: 2000
         };
-        
+
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 120000);
 
@@ -1181,7 +1023,7 @@
           const errorText = await res.text();
           throw new Error('Export failed: ' + (errorText || res.statusText));
         }
-        
+
         const blob = await res.blob();
         if (blob.size < 1000) throw new Error('Generated image is too small');
 
@@ -1213,13 +1055,13 @@
     async function exportScreenshot() {
       const screenshotBtn = el('exportScreenshotBtn');
       const originalContent = screenshotBtn?.innerHTML;
-      
+
       try {
         if (screenshotBtn) {
           screenshotBtn.disabled = true;
           screenshotBtn.innerHTML = '<i class="bi bi-hourglass-split animate-spin"></i> Capturing…';
         }
-        
+
         if (!window.html2canvas) {
           await new Promise((resolve, reject) => {
             const script = document.createElement('script');
@@ -1229,13 +1071,13 @@
             document.head.appendChild(script);
           });
         }
-        
+
         window.HailUI?.toast?.('Capturing screenshot…', { type: 'info', title: 'Export' });
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
         const mapElement = document.getElementById('map');
         if (!mapElement) throw new Error('Map element not found');
-        
+
         const canvas = await window.html2canvas(mapElement, {
           useCORS: true,
           allowTaint: true,
@@ -1243,7 +1085,7 @@
           logging: false,
           scale: 2
         });
-        
+
         const dataUrl = canvas.toDataURL('image/png');
         const link = document.createElement('a');
         link.href = dataUrl;
@@ -1251,9 +1093,9 @@
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
+
         window.HailUI?.toast?.('Screenshot saved!', { type: 'success', title: 'Done' });
-        
+
       } catch (e) {
         console.error('[Viewer] Screenshot error:', e);
         showInlineError('Screenshot failed: ' + e.message);
@@ -1269,7 +1111,7 @@
     el('exportCurrentViewBtn')?.addEventListener('click', async () => {
       try { await exportServerRendered(); } catch (e) { showInlineError(e.message); }
     });
-    
+
     el('exportScreenshotBtn')?.addEventListener('click', async () => {
       try { await exportScreenshot(); } catch (e) { showInlineError(e.message); }
     });
