@@ -163,6 +163,12 @@
                 GeoJSON
             </a>
             {% endif %}
+            {% if result.raster %}
+            <a class="action-btn" href="{{ url_for('serve_output', job_id=job_id, filename=result.raster) }}" download>
+                <i class="bi bi-file-earmark-image"></i>
+                GeoTIFF
+            </a>
+            {% endif %}
         </div>
     </div>
 </div>

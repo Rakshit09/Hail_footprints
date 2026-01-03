@@ -356,6 +356,17 @@
       }
     }
 
+    // viewer geotiff
+    const tiffLink = $('viewerDownloadGeoTiff');
+    if (tiffLink) {
+      if (result?.raster) {
+        tiffLink.href = `/outputs/${jobId}/${result.raster}`;
+        tiffLink.classList.remove('hidden');
+      } else {
+        tiffLink.classList.add('hidden');
+      }
+    }
+
     // summary
     const summary = $('resultsSummaryBody');
     if (summary) {

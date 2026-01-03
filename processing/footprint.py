@@ -664,8 +664,8 @@ def run_footprint(
     
     # return filenames only
     return {
-        "raster": raster_filename,
-        "view_raster": view_raster_filename,
+        "raster": view_raster_filename,
+        "raw_raster": raster_filename,
         "polygons": poly_filename,
         "polygon_layer": out_poly_layer,
         "geojson": geojson_filename,
