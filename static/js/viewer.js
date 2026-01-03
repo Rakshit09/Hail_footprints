@@ -1052,68 +1052,8 @@
       }
     }
 
-    async function exportScreenshot() {
-      const screenshotBtn = el('exportScreenshotBtn');
-      const originalContent = screenshotBtn?.innerHTML;
-
-      try {
-        if (screenshotBtn) {
-          screenshotBtn.disabled = true;
-          screenshotBtn.innerHTML = '<i class="bi bi-hourglass-split animate-spin"></i> Capturing…';
-        }
-
-        if (!window.html2canvas) {
-          await new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-            script.onload = resolve;
-            script.onerror = () => reject(new Error('Failed to load screenshot library'));
-            document.head.appendChild(script);
-          });
-        }
-
-        window.HailUI?.toast?.('Capturing screenshot…', { type: 'info', title: 'Export' });
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        const mapElement = document.getElementById('map');
-        if (!mapElement) throw new Error('Map element not found');
-
-        const canvas = await window.html2canvas(mapElement, {
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: '#ffffff',
-          logging: false,
-          scale: 2
-        });
-
-        const dataUrl = canvas.toDataURL('image/png');
-        const link = document.createElement('a');
-        link.href = dataUrl;
-        link.download = `${eventName || 'hail_footprint'}_screenshot.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        window.HailUI?.toast?.('Screenshot saved!', { type: 'success', title: 'Done' });
-
-      } catch (e) {
-        console.error('[Viewer] Screenshot error:', e);
-        showInlineError('Screenshot failed: ' + e.message);
-        window.HailUI?.toast?.('Screenshot failed: ' + e.message, { type: 'danger', title: 'Error' });
-      } finally {
-        if (screenshotBtn) {
-          screenshotBtn.disabled = false;
-          screenshotBtn.innerHTML = originalContent || '<i class="bi bi-image"></i> Screenshot';
-        }
-      }
-    }
-
     el('exportCurrentViewBtn')?.addEventListener('click', async () => {
       try { await exportServerRendered(); } catch (e) { showInlineError(e.message); }
-    });
-
-    el('exportScreenshotBtn')?.addEventListener('click', async () => {
-      try { await exportScreenshot(); } catch (e) { showInlineError(e.message); }
     });
 
     console.log('[Viewer] ✓ Initialization complete');

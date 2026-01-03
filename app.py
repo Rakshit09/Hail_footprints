@@ -1047,7 +1047,7 @@ def generate_map_png(
     if show_footprint and footprint_3857 is not None and not footprint_3857.empty:
         if 'Hail_Size' in footprint_3857.columns:
             if display_mode == 'continuous':
-                # CONTINUOUS MODE: Rasterize and apply Gaussian blur for smooth appearance
+                    # CONTINUOUS MODE: Normalized Convolution for correct value preservation
                 try:
                     from scipy.ndimage import gaussian_filter
                     import numpy as np
@@ -1061,42 +1061,92 @@ def generate_map_png(
                     
                     print(f"[MapGen] Rasterizing to {rast_width}x{rast_height}")
                     
+                    # Estimate reasonable sigma based on CELL SIZE
+                    # Calculate average cell area in map units (approx)
+                    # We can use the bounds of the first few polygons to guess size
+                    avg_cell_width = 0
+                    if not footprint_3857.empty:
+                        # take a sample
+                        sample = footprint_3857.geometry.iloc[:20]
+                        total_area = sum(g.area for g in sample)
+                        avg_area = total_area / len(sample)
+                        avg_cell_width = np.sqrt(avg_area)
+                    
+                    # Convert map units to pixels
+                    # width_m / rast_width = meters_per_pixel
+                    map_width_m = abs(rast_maxx - rast_minx)
+                    m_per_px = map_width_m / rast_width
+                    
+                    cell_size_px = avg_cell_width / m_per_px if m_per_px > 0 else 10
+                    
+                    # Heuristic: sigma approx 0.6x cell size preserves >95% of peak value (matches viewer opaque center)
+                    sigma = max(2.0, cell_size_px * 0.6)
+                    print(f"[MapGen] Calc sigma: {sigma:.2f} (cell_size_px: {cell_size_px:.1f})")
+
                     # Create transform for rasterization
                     transform = from_bounds(rast_minx, rast_miny, rast_maxx, rast_maxy, 
                                            rast_width, rast_height)
                     
-                    # Rasterize: create an array with hail values
-                    shapes = [(geom, val) for geom, val in zip(footprint_3857.geometry, 
+                    # 1. Rasterize Values (Signal) * Mask
+                    # shapes = (geometry, value)
+                    shapes_val = [(geom, val) for geom, val in zip(footprint_3857.geometry, 
                                                                 footprint_3857['Hail_Size'])]
-                    raster = rasterize(shapes, out_shape=(rast_height, rast_width), 
+                    raster_val = rasterize(shapes_val, out_shape=(rast_height, rast_width), 
                                        transform=transform, fill=0, dtype='float32')
                     
-                    # Create binary mask from footprint boundary (1 = inside, 0 = outside)
-                    boundary_shapes = [(geom, 1) for geom in footprint_3857.geometry]
-                    boundary_mask = rasterize(boundary_shapes, out_shape=(rast_height, rast_width),
-                                              transform=transform, fill=0, dtype='uint8')
+                    # 2. Rasterize Weights (Binary Mask)
+                    # shapes = (geometry, 1)
+                    shapes_weight = [(geom, 1.0) for geom in footprint_3857.geometry]
+                    raster_weight = rasterize(shapes_weight, out_shape=(rast_height, rast_width),
+                                              transform=transform, fill=0, dtype='float32')
                     
-                    print(f"[MapGen] Raster non-zero pixels: {np.count_nonzero(raster)}")
+                    print(f"[MapGen] Raster non-zero pixels: {np.count_nonzero(raster_weight)}")
                     
-                    # Apply Gaussian blur for smoothing
-                    sigma = max(3, min(rast_width, rast_height) // 40)
-                    smoothed = gaussian_filter(raster, sigma=sigma)
+                    # 3. Apply Gaussian Blur to both (Normalized Convolution)
+                    smoothed_val = gaussian_filter(raster_val, sigma=sigma, mode='constant', cval=0)
+                    smoothed_weight = gaussian_filter(raster_weight, sigma=sigma, mode='constant', cval=0)
                     
-                    # CLIP: Apply boundary mask to keep colors INSIDE footprint only
-                    # Set values outside the original boundary to 0
-                    smoothed = np.where(boundary_mask > 0, smoothed, 0)
+                    # 4. Normalize
+                    # Avoid division by zero
+                    with np.errstate(divide='ignore', invalid='ignore'):
+                        normalized = smoothed_val / smoothed_weight
+                        # Fill undefined (0/0) or unstable areas with 0
+                        normalized[smoothed_weight < 1e-6] = 0
+                        
+                    print(f"[MapGen] Normalized non-zero: {np.count_nonzero(normalized)}")
                     
-                    print(f"[MapGen] Smoothed (clipped) non-zero: {np.count_nonzero(smoothed)}")
+                    # 5. Create Alpha Mask for Soft Edges
+                    # Instead of hard clipping, use the smoothed_weight as the alpha map
+                    # Scale weight to 0-1 range for opacity
+                    # Weights > 0.5 usually mean "inside" a cell, < 0.5 is "fade out"
+                    # We boost it slightly so the center of cells is fully opaque
+                    alpha_map = smoothed_weight  # raw weight is approx 0..1 (locally)
                     
-                    # Mask zero values for transparency
-                    masked = np.ma.masked_where(smoothed <= 0.001, smoothed)
+                    # Normalize alpha map to verify max is near 1
+                    max_weight = np.max(smoothed_weight)
+                    if max_weight > 0:
+                        alpha_map = alpha_map / max_weight
+                        
+                    # Apply global opacity
+                    # We can use a colormap that handles alpha, or manually create RGBA
                     
-                    # Plot as image - rasterio uses origin='upper' (top-left)
-                    ax.imshow(masked, extent=[rast_minx, rast_maxx, rast_miny, rast_maxy], 
-                             origin='upper', cmap=cmap, norm=norm, alpha=opacity, 
-                             zorder=2, interpolation='bilinear', aspect='auto')
+                    # Get RGBA from colormap
+                    norm_data = norm(normalized)
+                    rgba_img = cmap(norm_data) # (H, W, 4)
                     
-                    print(f"[MapGen] Plotted footprint in CONTINUOUS mode (sigma={sigma})")
+                    # Replace Alpha channel
+                    # Combine local softness (alpha_map) with global opacity settings
+                    # alpha_map gives the shape/fading
+                    final_alpha = alpha_map * opacity
+                    
+                    # Threshold very low alpha to keep file size sanity? maybe not needed
+                    rgba_img[..., 3] = final_alpha
+                    
+                    # Plot as image
+                    ax.imshow(rgba_img, extent=[rast_minx, rast_maxx, rast_miny, rast_maxy], 
+                             origin='upper', zorder=2, interpolation='bicubic', aspect='auto')
+                             
+                    print(f"[MapGen] Plotted footprint in CONTINUOUS mode (Normalized Conv)")
                 except Exception as e:
                     import traceback
                     traceback.print_exc()

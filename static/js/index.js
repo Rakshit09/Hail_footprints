@@ -126,30 +126,30 @@
     const thead = document.getElementById('previewThead');
     const tbody = document.getElementById('previewTbody');
     if (!thead || !tbody) return;
-    
+
     thead.innerHTML = `<tr>` + columns.map(c => `<th class="px-4 py-3 text-left">${escapeHtml(c)}</th>`).join('') + `</tr>`;
     tbody.innerHTML = (rows || []).map(r => (
-        `<tr class="hover:bg-gray-50">` +
-        columns.map(c => `<td class="px-4 py-2.5 whitespace-nowrap">${escapeHtml(r?.[c] ?? '')}</td>`).join('') +
-        `</tr>`
+      `<tr class="hover:bg-gray-50">` +
+      columns.map(c => `<td class="px-4 py-2.5 whitespace-nowrap">${escapeHtml(r?.[c] ?? '')}</td>`).join('') +
+      `</tr>`
     )).join('');
-    
+
     // sync heights after populating
     setTimeout(syncPreviewHeight, 50);
-}
+  }
 
   // data preview height 
   function syncPreviewHeight() {
     const leftColumn = document.getElementById('leftConfigColumn');
     const previewCard = document.getElementById('dataPreviewCard');
     const previewContainer = document.getElementById('previewTableContainer');
-    
+
     if (leftColumn && previewCard && previewContainer) {
-        const leftHeight = leftColumn.offsetHeight;
-        previewCard.style.height = leftHeight + 'px';
-        const header = previewCard.querySelector('.config-group-header');
-        const headerHeight = header ? header.offsetHeight : 45;
-        previewContainer.style.height = (leftHeight - headerHeight) + 'px';
+      const leftHeight = leftColumn.offsetHeight;
+      previewCard.style.height = leftHeight + 'px';
+      const header = previewCard.querySelector('.config-group-header');
+      const headerHeight = header ? header.offsetHeight : 45;
+      previewContainer.style.height = (leftHeight - headerHeight) + 'px';
     }
   }
 
@@ -158,7 +158,7 @@
   document.getElementById('configSection').style.display = 'block';
   setTimeout(syncPreviewHeight, 100);
 
-// syncPreviewHeight();
+  // syncPreviewHeight();
   function revealConfigSection() {
     const section = $('configSection');
     if (section) {
@@ -242,7 +242,7 @@
         const overlay = document.createElement('div');
         overlay.id = overlayId;
         overlay.className = 'absolute inset-0 z-50 bg-white/75 flex items-center justify-center rounded-lg';
-        
+
         // Small pill with spinner
         overlay.innerHTML = `
           <div class="flex items-center gap-2 px-3 py-1.5 bg-white shadow-sm border border-gray-100 rounded-full">
@@ -253,7 +253,7 @@
              <span class="text-xs font-medium text-gray-700">Opening...</span>
           </div>
         `;
-        
+
         dz.appendChild(overlay);
         document.body.style.cursor = 'wait'; // Helper cursor
       } else {
@@ -341,17 +341,12 @@
     const panel = $('resultsPanel');
     if (panel) panel.style.display = 'block';
 
-    // downloads
-    const pngLink = $('downloadPng');
-    if (pngLink) {
-      if (result?.footprint_png) {
-        pngLink.href = `/outputs/${jobId}/${result.footprint_png}`;
-        pngLink.classList.remove('hidden');
-      } else {
-        pngLink.classList.add('hidden');
-      }
-    }
-    const geoLink = $('downloadGeoJson');
+    // viewer link 
+    const newTab = $('viewerOpenNewTab');
+    if (newTab) newTab.href = `/viewer/${jobId}`;
+
+    // viewer geojson
+    const geoLink = $('viewerDownloadGeoJson');
     if (geoLink) {
       if (result?.geojson) {
         geoLink.href = `/outputs/${jobId}/${result.geojson}`;
@@ -361,7 +356,7 @@
       }
     }
 
-      // summary
+    // summary
     const summary = $('resultsSummaryBody');
     if (summary) {
       const rows = [
@@ -379,10 +374,6 @@
         </tr>
       `).join('');
     }
-
-    // viewer link 
-    const newTab = $('openViewerNewTab');
-    if (newTab) newTab.href = `/viewer/${jobId}`;
   }
 
   function revealViewer(jobId, eventName, result) {

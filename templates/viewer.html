@@ -156,10 +156,6 @@
                 <i class="bi bi-camera"></i>
                 HQ Export
             </button>
-            <button id="exportScreenshotBtn" class="action-btn">
-                <i class="bi bi-image"></i>
-                Screenshot
-            </button>
             {% if result.geojson %}
             <a class="submit-btn text-white font-semibold px-5 py-2.5 rounded-xl flex items-center gap-2"
                 href="{{ url_for('serve_output', job_id=job_id, filename=result.geojson) }}" download>
@@ -167,275 +163,268 @@
                 GeoJSON
             </a>
             {% endif %}
-            {% if result.footprint_png %}
-            <a class="action-btn" href="{{ url_for('serve_output', job_id=job_id, filename=result.footprint_png) }}"
-                download>
-                <i class="bi bi-file-image"></i>
-                PNG
-            </a>
-            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Brand Divider -->
+<div class="brand-divider h-1"></div>
+
+<!-- Map Container -->
+<div id="map-container" class="relative p-4">
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay"
+        class="absolute inset-4 z-[2000] flex items-center justify-center bg-white/95 rounded-2xl">
+        <div class="text-center">
+            <div class="w-12 h-12 mx-auto rounded-full border-3 border-gray-200 border-t-brand-blue animate-spin">
+            </div>
+            <div class="mt-4 font-semibold text-brand-dark">Loading Map</div>
+            <div class="text-xs text-gray-500">Fetching data…</div>
         </div>
     </div>
 
-    <!-- Brand Divider -->
-    <div class="brand-divider h-1"></div>
+    <!-- Map -->
+    <div id="map" class="rounded-2xl"></div>
 
-    <!-- Map Container -->
-    <div id="map-container" class="relative p-4">
+    <!-- Quick Actions -->
+    <div class="absolute left-8 top-8 z-[1000] flex flex-col gap-2">
+        <button class="map-btn" id="resetViewBtn" title="Reset View">
+            <i class="bi bi-arrows-fullscreen"></i>
+        </button>
+        <button class="map-btn" id="toggleLayersBtn" title="Toggle Layers">
+            <i class="bi bi-layers"></i>
+        </button>
+        <button class="map-btn" id="togglePointsBtn" title="Toggle Points">
+            <i class="bi bi-geo-alt"></i>
+        </button>
+    </div>
 
-        <!-- Loading Overlay -->
-        <div id="loading-overlay"
-            class="absolute inset-4 z-[2000] flex items-center justify-center bg-white/95 rounded-2xl">
-            <div class="text-center">
-                <div class="w-12 h-12 mx-auto rounded-full border-3 border-gray-200 border-t-brand-blue animate-spin">
-                </div>
-                <div class="mt-4 font-semibold text-brand-dark">Loading Map</div>
-                <div class="text-xs text-gray-500">Fetching data…</div>
+    <!-- Control Panel -->
+    <div id="controlPanel" class="absolute right-8 top-8 z-[2000] w-[280px] control-panel">
+
+        <!-- Panel Header -->
+        <div id="panelHeader"
+            class="flex cursor-pointer items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/80">
+            <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                <i class="bi bi-sliders2"></i>
+                Controls
             </div>
+            <button id="panelToggle"
+                class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-200 transition">
+                <i class="bi bi-chevron-right text-xs" id="toggleIcon"></i>
+            </button>
         </div>
 
-        <!-- Map -->
-        <div id="map" class="rounded-2xl"></div>
+        <!-- Panel Content -->
+        <div id="panelContent" class="space-y-4 p-4">
 
-        <!-- Quick Actions -->
-        <div class="absolute left-8 top-8 z-[1000] flex flex-col gap-2">
-            <button class="map-btn" id="resetViewBtn" title="Reset View">
-                <i class="bi bi-arrows-fullscreen"></i>
-            </button>
-            <button class="map-btn" id="toggleLayersBtn" title="Toggle Layers">
-                <i class="bi bi-layers"></i>
-            </button>
-            <button class="map-btn" id="togglePointsBtn" title="Toggle Points">
-                <i class="bi bi-geo-alt"></i>
-            </button>
-        </div>
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <!-- LAYERS SECTION -->
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <div class="control-section">
+                <div class="section-header">Layers</div>
+                <div class="space-y-1">
 
-        <!-- Control Panel -->
-        <div id="controlPanel" class="absolute right-8 top-8 z-[2000] w-[280px] control-panel">
+                    <!-- ─────────────────────────────────────────────────────── -->
+                    <!-- Hail Intensity Layer -->
+                    <!-- ─────────────────────────────────────────────────────── -->
+                    <label class="layer-item">
+                        <span class="text-sm font-medium text-gray-700">Hail intensity</span>
+                        <input id="showFootprint" type="checkbox" checked class="checkbox">
+                    </label>
 
-            <!-- Panel Header -->
-            <div id="panelHeader"
-                class="flex cursor-pointer items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/80">
-                <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-600">
-                    <i class="bi bi-sliders2"></i>
-                    Controls
-                </div>
-                <button id="panelToggle"
-                    class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-200 transition">
-                    <i class="bi bi-chevron-right text-xs" id="toggleIcon"></i>
-                </button>
-            </div>
+                    <!-- Footprint Options (nested under Hail intensity) -->
+                    <div id="footprintOptions" class="nested-options space-y-2">
 
-            <!-- Panel Content -->
-            <div id="panelContent" class="space-y-4 p-4">
+                        <!-- Display Mode Selector -->
+                        <div class="option-row">
+                            <span class="option-label">Display</span>
+                            <select id="displayMode"
+                                class="w-28 px-2 py-1 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="cells">Grid Cells</option>
+                                <option value="continuous">Continuous</option>
+                            </select>
+                        </div>
 
-                <!-- ═══════════════════════════════════════════════════════════════ -->
-                <!-- LAYERS SECTION -->
-                <!-- ═══════════════════════════════════════════════════════════════ -->
-                <div class="control-section">
-                    <div class="section-header">Layers</div>
-                    <div class="space-y-1">
-
-                        <!-- ─────────────────────────────────────────────────────── -->
-                        <!-- Hail Intensity Layer -->
-                        <!-- ─────────────────────────────────────────────────────── -->
-                        <label class="layer-item">
-                            <span class="text-sm font-medium text-gray-700">Hail intensity</span>
-                            <input id="showFootprint" type="checkbox" checked class="checkbox">
-                        </label>
-
-                        <!-- Footprint Options (nested under Hail intensity) -->
-                        <div id="footprintOptions" class="nested-options space-y-2">
-
-                            <!-- Display Mode Selector -->
-                            <div class="option-row">
-                                <span class="option-label">Display</span>
-                                <select id="displayMode"
-                                    class="w-28 px-2 py-1 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    <option value="cells">Grid Cells</option>
-                                    <option value="continuous">Continuous</option>
-                                </select>
-                            </div>
-
-                            <!-- Cell Options (visible when displayMode is "cells") -->
-                            <div id="cellOptions" class="space-y-1">
-                                <label class="option-row cursor-pointer">
-                                    <span class="option-label">Cell borders</span>
-                                    <input id="showCellBorders" type="checkbox" checked class="checkbox">
-                                </label>
-                                <!-- Cell Border Sub-options -->
-                                <div id="cellBorderOptions" class="pl-2 space-y-1">
-                                    <div class="option-row">
-                                        <span class="option-label-sm">Border width</span>
-                                        <input id="cellBorderWidth" type="number" min="0.1" max="3" step="0.1"
-                                            value="0.5"
-                                            class="w-16 px-2 py-1 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
-                                    </div>
-                                    <div class="option-row">
-                                        <span class="option-label-sm">Border color</span>
-                                        <input id="cellBorderColor" type="color" value="#666666"
-                                            class="w-16 h-7 border border-gray-300 rounded cursor-pointer">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Continuous Options (visible when displayMode is "continuous") -->
-                            <div id="continuousOptions" class="space-y-1" style="display: none;">
+                        <!-- Cell Options (visible when displayMode is "cells") -->
+                        <div id="cellOptions" class="space-y-1">
+                            <label class="option-row cursor-pointer">
+                                <span class="option-label">Cell borders</span>
+                                <input id="showCellBorders" type="checkbox" checked class="checkbox">
+                            </label>
+                            <!-- Cell Border Sub-options -->
+                            <div id="cellBorderOptions" class="pl-2 space-y-1">
                                 <div class="option-row">
-                                    <span class="option-label">Smoothness</span>
-                                    <input id="smoothnessLevel" type="range" min="1" max="5" value="3"
-                                        class="w-20 cursor-pointer">
+                                    <span class="option-label-sm">Border width</span>
+                                    <input id="cellBorderWidth" type="number" min="0.1" max="3" step="0.1" value="0.5"
+                                        class="w-16 px-2 py-1 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                </div>
+                                <div class="option-row">
+                                    <span class="option-label-sm">Border color</span>
+                                    <input id="cellBorderColor" type="color" value="#666666"
+                                        class="w-16 h-7 border border-gray-300 rounded cursor-pointer">
                                 </div>
                             </div>
                         </div>
 
-                        <!-- ─────────────────────────────────────────────────────── -->
-                        <!-- Outline Layer -->
-                        <!-- ─────────────────────────────────────────────────────── -->
-                        <label class="layer-item">
-                            <span class="text-sm font-medium text-gray-700">Outline</span>
-                            <input id="showOutline" type="checkbox" checked class="checkbox">
-                        </label>
-
-                        <!-- Outline Options (nested under Outline) -->
-                        <div id="outlineOptions" class="nested-options space-y-1">
+                        <!-- Continuous Options (visible when displayMode is "continuous") -->
+                        <div id="continuousOptions" class="space-y-1" style="display: none;">
                             <div class="option-row">
-                                <span class="option-label">Width</span>
-                                <input id="outlineWidth" type="number" min="0.5" max="10" step="0.5" value="2.5"
-                                    class="w-16 px-2 py-1 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
-                            </div>
-                            <div class="option-row">
-                                <span class="option-label">Color</span>
-                                <input id="outlineColor" type="color" value="#000000"
-                                    class="w-16 h-7 border border-gray-300 rounded cursor-pointer">
+                                <span class="option-label">Smoothness</span>
+                                <input id="smoothnessLevel" type="range" min="1" max="5" value="3"
+                                    class="w-20 cursor-pointer">
                             </div>
                         </div>
-
-                        <!-- ─────────────────────────────────────────────────────── -->
-                        <!-- Points Layer -->
-                        <!-- ─────────────────────────────────────────────────────── -->
-                        <label class="layer-item">
-                            <span class="text-sm font-medium text-gray-700">Points</span>
-                            <input id="showPoints" type="checkbox" class="checkbox">
-                        </label>
                     </div>
-                </div>
 
-                <!-- ═══════════════════════════════════════════════════════════════ -->
-                <!-- COLOR MAP SECTION -->
-                <!-- ═══════════════════════════════════════════════════════════════ -->
-                <div class="control-section">
-                    <div class="section-header">Color Map</div>
-                    <select id="colorMapSelect"
-                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <optgroup label="Sequential">
-                            <option value="ylOrRd" selected>Yellow-Orange-Red</option>
-                            <option value="orRd">Orange-Red</option>
-                            <option value="reds">Reds</option>
-                            <option value="ylGnBu">Yellow-Green-Blue</option>
-                            <option value="blues">Blues</option>
-                            <option value="greens">Greens</option>
-                            <option value="purples">Purples</option>
-                            <option value="greys">Greys</option>
-                        </optgroup>
-                        <optgroup label="Perceptually Uniform">
-                            <option value="viridis">Viridis</option>
-                            <option value="plasma">Plasma</option>
-                            <option value="inferno">Inferno</option>
-                            <option value="magma">Magma</option>
-                            <option value="cividis">Cividis</option>
-                            <option value="turbo">Turbo</option>
-                        </optgroup>
-                        <optgroup label="Diverging">
-                            <option value="rdYlGn">Red-Yellow-Green</option>
-                            <option value="rdYlBu">Red-Yellow-Blue</option>
-                            <option value="rdBu">Red-Blue</option>
-                            <option value="spectral">Spectral</option>
-                            <option value="coolwarm">Cool-Warm</option>
-                            <option value="bwr">Blue-White-Red</option>
-                        </optgroup>
-                        <optgroup label="Classic">
-                            <option value="jet">Jet</option>
-                            <option value="rainbow">Rainbow</option>
-                            <option value="hot">Hot</option>
-                            <option value="cool">Cool</option>
-                        </optgroup>
-                    </select>
-                    <div id="colorMapPreview" class="colormap-preview"></div>
-                </div>
+                    <!-- ─────────────────────────────────────────────────────── -->
+                    <!-- Outline Layer -->
+                    <!-- ─────────────────────────────────────────────────────── -->
+                    <label class="layer-item">
+                        <span class="text-sm font-medium text-gray-700">Outline</span>
+                        <input id="showOutline" type="checkbox" checked class="checkbox">
+                    </label>
 
-                <!-- ═══════════════════════════════════════════════════════════════ -->
-                <!-- OPACITY SECTION -->
-                <!-- ═══════════════════════════════════════════════════════════════ -->
-                <div class="control-section">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="section-header" style="margin-bottom: 0;">Opacity</span>
-                        <span class="text-xs font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded"
-                            id="opacityValue">0.6</span>
+                    <!-- Outline Options (nested under Outline) -->
+                    <div id="outlineOptions" class="nested-options space-y-1">
+                        <div class="option-row">
+                            <span class="option-label">Width</span>
+                            <input id="outlineWidth" type="number" min="0.5" max="10" step="0.5" value="2.5"
+                                class="w-16 px-2 py-1 text-xs border border-gray-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        </div>
+                        <div class="option-row">
+                            <span class="option-label">Color</span>
+                            <input id="outlineColor" type="color" value="#000000"
+                                class="w-16 h-7 border border-gray-300 rounded cursor-pointer">
+                        </div>
                     </div>
-                    <input id="opacitySlider" type="range" min="0.1" max="1" step="0.1" value="0.6">
-                </div>
 
-                <!-- ═══════════════════════════════════════════════════════════════ -->
-                <!-- BASEMAP SECTION -->
-                <!-- ═══════════════════════════════════════════════════════════════ -->
-                <div class="control-section">
-                    <div class="section-header">Basemap</div>
-                    <select id="basemapSelect"
-                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <optgroup label="Light">
-                            <option value="carto_light" selected>Carto Light</option>
-                            <option value="carto_positron_nolabels">Carto (No Labels)</option>
-                            <option value="osm">OpenStreetMap</option>
-                            <option value="esri_gray">ESRI Gray</option>
-                        </optgroup>
-                        <optgroup label="Dark">
-                            <option value="carto_dark">Carto Dark</option>
-                            <option value="esri_darkgray">ESRI Dark Gray</option>
-                        </optgroup>
-                        <optgroup label="Detailed">
-                            <option value="carto_voyager">Carto Voyager</option>
-                            <option value="esri_worldstreet">ESRI Street</option>
-                            <option value="esri_worldtopo">ESRI Topo</option>
-                        </optgroup>
-                        <optgroup label="Imagery">
-                            <option value="esri_worldimagery">ESRI Satellite</option>
-                        </optgroup>
-                        <optgroup label="Other">
-                            <option value="none">No basemap</option>
-                        </optgroup>
-                    </select>
-                </div>
-
-                <!-- ═══════════════════════════════════════════════════════════════ -->
-                <!-- COORDINATES DISPLAY -->
-                <!-- ═══════════════════════════════════════════════════════════════ -->
-                <div class="control-section">
-                    <div class="text-[10px] text-gray-400 font-mono" id="coordsDisplay">
-                        Move mouse over map
-                    </div>
+                    <!-- ─────────────────────────────────────────────────────── -->
+                    <!-- Points Layer -->
+                    <!-- ─────────────────────────────────────────────────────── -->
+                    <label class="layer-item">
+                        <span class="text-sm font-medium text-gray-700">Points</span>
+                        <input id="showPoints" type="checkbox" class="checkbox">
+                    </label>
                 </div>
             </div>
-        </div>
 
-        <!-- Legend -->
-        <div class="absolute bottom-8 right-8 z-[1000] legend-box">
-            <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Hail Size (cm)</div>
-            <div id="legendGradient" class="w-36 rounded-full"></div>
-            <div class="mt-1 flex justify-between text-[10px] text-gray-500 font-mono">
-                <span id="legendMin">0</span>
-                <span id="legendMax">1</span>
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <!-- COLOR MAP SECTION -->
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <div class="control-section">
+                <div class="section-header">Color Map</div>
+                <select id="colorMapSelect"
+                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <optgroup label="Sequential">
+                        <option value="ylOrRd" selected>Yellow-Orange-Red</option>
+                        <option value="orRd">Orange-Red</option>
+                        <option value="reds">Reds</option>
+                        <option value="ylGnBu">Yellow-Green-Blue</option>
+                        <option value="blues">Blues</option>
+                        <option value="greens">Greens</option>
+                        <option value="purples">Purples</option>
+                        <option value="greys">Greys</option>
+                    </optgroup>
+                    <optgroup label="Perceptually Uniform">
+                        <option value="viridis">Viridis</option>
+                        <option value="plasma">Plasma</option>
+                        <option value="inferno">Inferno</option>
+                        <option value="magma">Magma</option>
+                        <option value="cividis">Cividis</option>
+                        <option value="turbo">Turbo</option>
+                    </optgroup>
+                    <optgroup label="Diverging">
+                        <option value="rdYlGn">Red-Yellow-Green</option>
+                        <option value="rdYlBu">Red-Yellow-Blue</option>
+                        <option value="rdBu">Red-Blue</option>
+                        <option value="spectral">Spectral</option>
+                        <option value="coolwarm">Cool-Warm</option>
+                        <option value="bwr">Blue-White-Red</option>
+                    </optgroup>
+                    <optgroup label="Classic">
+                        <option value="jet">Jet</option>
+                        <option value="rainbow">Rainbow</option>
+                        <option value="hot">Hot</option>
+                        <option value="cool">Cool</option>
+                    </optgroup>
+                </select>
+                <div id="colorMapPreview" class="colormap-preview"></div>
             </div>
-        </div>
 
-        <!-- Hover Info -->
-        <div class="absolute bottom-8 left-8 z-[1000] info-box">
-            <span class="text-xs text-gray-500">Hail:</span>
-            <span class="ml-1 text-xs font-semibold" id="hoverInfo">Hover over map</span>
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <!-- OPACITY SECTION -->
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <div class="control-section">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="section-header" style="margin-bottom: 0;">Opacity</span>
+                    <span class="text-xs font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded"
+                        id="opacityValue">0.6</span>
+                </div>
+                <input id="opacitySlider" type="range" min="0.1" max="1" step="0.1" value="0.6">
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <!-- BASEMAP SECTION -->
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <div class="control-section">
+                <div class="section-header">Basemap</div>
+                <select id="basemapSelect"
+                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <optgroup label="Light">
+                        <option value="carto_light" selected>Carto Light</option>
+                        <option value="carto_positron_nolabels">Carto (No Labels)</option>
+                        <option value="osm">OpenStreetMap</option>
+                        <option value="esri_gray">ESRI Gray</option>
+                    </optgroup>
+                    <optgroup label="Dark">
+                        <option value="carto_dark">Carto Dark</option>
+                        <option value="esri_darkgray">ESRI Dark Gray</option>
+                    </optgroup>
+                    <optgroup label="Detailed">
+                        <option value="carto_voyager">Carto Voyager</option>
+                        <option value="esri_worldstreet">ESRI Street</option>
+                        <option value="esri_worldtopo">ESRI Topo</option>
+                    </optgroup>
+                    <optgroup label="Imagery">
+                        <option value="esri_worldimagery">ESRI Satellite</option>
+                    </optgroup>
+                    <optgroup label="Other">
+                        <option value="none">No basemap</option>
+                    </optgroup>
+                </select>
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <!-- COORDINATES DISPLAY -->
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <div class="control-section">
+                <div class="text-[10px] text-gray-400 font-mono" id="coordsDisplay">
+                    Move mouse over map
+                </div>
+            </div>
         </div>
     </div>
 
-    <div id="errorContainer" class="px-8 pb-4"></div>
+    <!-- Legend -->
+    <div class="absolute bottom-8 right-8 z-[1000] legend-box">
+        <div class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Hail Size (cm)</div>
+        <div id="legendGradient" class="w-36 rounded-full"></div>
+        <div class="mt-1 flex justify-between text-[10px] text-gray-500 font-mono">
+            <span id="legendMin">0</span>
+            <span id="legendMax">1</span>
+        </div>
+    </div>
+
+    <!-- Hover Info -->
+    <div class="absolute bottom-8 left-8 z-[1000] info-box">
+        <span class="text-xs text-gray-500">Hail:</span>
+        <span class="ml-1 text-xs font-semibold" id="hoverInfo">Hover over map</span>
+    </div>
+</div>
+
+<div id="errorContainer" class="px-8 pb-4"></div>
 </div>
 {% endblock %}
 

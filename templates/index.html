@@ -353,16 +353,7 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
-                            <a id="downloadPng" class="action-btn hidden" download>
-                                <i class="bi bi-image"></i> PNG
-                            </a>
-                            <a id="downloadGeoJson" class="action-btn hidden" download>
-                                <i class="bi bi-filetype-json"></i> GeoJSON
-                            </a>
-                            <a href="#" id="openViewerNewTab"
-                                class="action-btn bg-green-600 text-white border-green-600 hover:bg-green-700">
-                                <i class="bi bi-box-arrow-up-right"></i> Open Map
-                            </a>
+                            <!-- Buttons removed as per request -->
                         </div>
                     </div>
 
@@ -410,10 +401,12 @@
                         <i class="bi bi-camera"></i>
                         HQ Export
                     </button>
-                    <button id="exportScreenshotBtn" class="action-btn">
-                        <i class="bi bi-image"></i>
-                        Screenshot
-                    </button>
+                    <a id="viewerDownloadGeoJson" class="action-btn hidden" download>
+                        <i class="bi bi-filetype-json"></i> GeoJSON
+                    </a>
+                    <a id="viewerOpenNewTab" href="#" target="_blank" class="action-btn">
+                        <i class="bi bi-box-arrow-up-right"></i> Open Map
+                    </a>
                 </div>
             </div>
 
