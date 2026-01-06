@@ -704,6 +704,9 @@ def render_map(job_id):
     # NEW: display mode and color map from viewer
     display_mode = data.get('display_mode', 'cells')  # 'cells' or 'continuous'
     color_map = data.get('color_map', 'ylOrRd')
+    # Point settings
+    point_radius = float(data.get('point_radius', 6))
+    point_color = data.get('point_color', '#ff7800')
     
     output_folder = Config.OUTPUT_FOLDER / job_id
     result = job['result']
@@ -729,6 +732,8 @@ def render_map(job_id):
             outline_color=outline_color,
             display_mode=display_mode,
             color_map=color_map,
+            point_radius=point_radius,
+            point_color=point_color,
         )
         
         return send_file(
@@ -892,6 +897,8 @@ def generate_map_png(
     outline_color='#000000',
     display_mode='cells',
     color_map='ylOrRd',
+    point_radius=3,
+    point_color='#ff7800',
 ):
     """generate a PNG map with specified settings"""
     import matplotlib
@@ -1015,13 +1022,23 @@ def generate_map_png(
     
     # Map viewer colormap names to matplotlib colormaps
     COLORMAP_MAPPING = {
+        # Sequential
         'ylOrRd': 'YlOrRd',
+        'orRd': 'OrRd',
+        'reds': 'Reds',
+        'ylGnBu': 'YlGnBu',
+        'blues': 'Blues',
+        'greens': 'Greens',
+        'purples': 'Purples',
+        'greys': 'Greys',
+        # Perceptually Uniform
         'viridis': 'viridis',
         'plasma': 'plasma',
         'inferno': 'inferno',
+        'magma': 'magma',
+        'cividis': 'cividis',
         'turbo': 'turbo',
-        'blues': 'Blues',
-        'greens': 'Greens',
+        # Legacy/Extra (from JavaScript definitions)
         'rdYlGn': 'RdYlGn',
         'spectral': 'Spectral',
         'coolwarm': 'coolwarm',
@@ -1191,15 +1208,19 @@ def generate_map_png(
     
     # plot points
     if show_points and points_3857 is not None and not points_3857.empty:
+        # Convert point_radius (which is in CSS/Leaflet units) to matplotlib marker size
+        # Leaflet circleMarker radius ~= pixel radius. Matplotlib markersize is area.
+        # markersize = π * r^2,  so for r=6, area~113. We scale roughly.
+        marker_size = (point_radius ** 2) * 1.5  # Rough conversion factor
         points_3857.plot(
             ax=ax,
-            color='#ff7800',
-            markersize=50,
+            color=point_color,
+            markersize=marker_size,
             edgecolor='black',
             linewidth=0.8,
             zorder=4,
         )
-        print("[MapGen] Plotted points")
+        print(f"[MapGen] Plotted points with color {point_color} and radius {point_radius}")
     
     # set the extent
     ax.set_xlim(ext_x1, ext_x2)

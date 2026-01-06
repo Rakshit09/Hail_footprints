@@ -125,18 +125,35 @@
   function showPreview(columns, rows) {
     const thead = document.getElementById('previewThead');
     const tbody = document.getElementById('previewTbody');
+    const hailColName = document.getElementById('hailCol')?.value;
+
     if (!thead || !tbody) return;
 
     thead.innerHTML = `<tr>` + columns.map(c => `<th class="px-4 py-3 text-left">${escapeHtml(c)}</th>`).join('') + `</tr>`;
-    tbody.innerHTML = (rows || []).map(r => (
-      `<tr class="hover:bg-gray-50">` +
-      columns.map(c => `<td class="px-4 py-2.5 whitespace-nowrap">${escapeHtml(r?.[c] ?? '')}</td>`).join('') +
-      `</tr>`
-    )).join('');
+    tbody.innerHTML = (rows || []).map(r => {
+      // Check if hail value is missing (if a hail column is selected)
+      let rowClass = 'hover:bg-gray-50';
+      if (hailColName && (r?.[hailColName] === null || r?.[hailColName] === undefined || r?.[hailColName] === '')) {
+        rowClass = 'bg-red-50/70 hover:bg-red-100/70';
+      }
+
+      return (
+        `<tr class="${rowClass}">` +
+        columns.map(c => `<td class="px-4 py-2.5 whitespace-nowrap">${escapeHtml(r?.[c] ?? '')}</td>`).join('') +
+        `</tr>`
+      );
+    }).join('');
 
     // sync heights after populating
     setTimeout(syncPreviewHeight, 50);
   }
+
+  // refresh preview when hail column changes
+  document.getElementById('hailCol')?.addEventListener('change', () => {
+    if (uploadedData) {
+      showPreview(uploadedData.columns, uploadedData.sample_data);
+    }
+  });
 
   // data preview height 
   function syncPreviewHeight() {

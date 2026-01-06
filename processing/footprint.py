@@ -335,14 +335,14 @@ def run_footprint(
     os.makedirs(params.out_folder, exist_ok=True)
     
     # output filenames
-    raster_filename = f"Fpt_Ras_{params.event_name}.tif"
-    view_raster_filename = f"Fpt_Ras_{params.event_name}_HailSize.tif"
-    poly_filename = f"Fpt_Pg_{params.event_name}.gpkg"
-    geojson_filename = f"Fpt_{params.event_name}.geojson"
+    raster_filename = f"Ras_{params.event_name}.tif"
+    view_raster_filename = f"Ras_{params.event_name}_HailSize.tif"
+    poly_filename = f"Pg_{params.event_name}.gpkg"
+    geojson_filename = f"Ras_{params.event_name}.geojson"
     footprint_geojson_filename = f"Footprint_{params.event_name}.geojson"
     points_geojson_filename = f"points_{params.event_name}.geojson"
     png_filename = f"Footprint_{params.event_name}_ClientMap.png"
-    out_poly_layer = f"Fpt_Pg_{params.event_name}"
+    out_poly_layer = f"Pg_{params.event_name}"
     
     # Full paths
     out_raster = os.path.join(params.out_folder, raster_filename)

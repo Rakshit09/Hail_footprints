@@ -34,6 +34,7 @@
   // COLOR MAPS DEFINITIONS
   // ═══════════════════════════════════════════════════════════════════════════
   const COLOR_MAPS = {
+    // Sequential colormaps
     ylOrRd: {
       name: 'Yellow-Orange-Red',
       stops: [
@@ -46,6 +47,91 @@
         { pos: 1.0, color: [189, 0, 38] }
       ]
     },
+    orRd: {
+      name: 'Orange-Red',
+      stops: [
+        { pos: 0.0, color: [255, 247, 236] },
+        { pos: 0.17, color: [254, 232, 200] },
+        { pos: 0.33, color: [253, 212, 158] },
+        { pos: 0.5, color: [253, 187, 132] },
+        { pos: 0.67, color: [252, 141, 89] },
+        { pos: 0.83, color: [239, 101, 72] },
+        { pos: 1.0, color: [179, 0, 0] }
+      ]
+    },
+    reds: {
+      name: 'Reds',
+      stops: [
+        { pos: 0.0, color: [255, 245, 240] },
+        { pos: 0.17, color: [254, 224, 210] },
+        { pos: 0.33, color: [252, 187, 161] },
+        { pos: 0.5, color: [252, 146, 114] },
+        { pos: 0.67, color: [251, 106, 74] },
+        { pos: 0.83, color: [222, 45, 38] },
+        { pos: 1.0, color: [165, 15, 21] }
+      ]
+    },
+    ylGnBu: {
+      name: 'Yellow-Green-Blue',
+      stops: [
+        { pos: 0.0, color: [255, 255, 217] },
+        { pos: 0.17, color: [237, 248, 177] },
+        { pos: 0.33, color: [199, 233, 180] },
+        { pos: 0.5, color: [127, 205, 187] },
+        { pos: 0.67, color: [65, 182, 196] },
+        { pos: 0.83, color: [29, 145, 192] },
+        { pos: 1.0, color: [8, 29, 88] }
+      ]
+    },
+    blues: {
+      name: 'Blues',
+      stops: [
+        { pos: 0.0, color: [247, 251, 255] },
+        { pos: 0.17, color: [222, 235, 247] },
+        { pos: 0.33, color: [198, 219, 239] },
+        { pos: 0.5, color: [158, 202, 225] },
+        { pos: 0.67, color: [107, 174, 214] },
+        { pos: 0.83, color: [49, 130, 189] },
+        { pos: 1.0, color: [8, 81, 156] }
+      ]
+    },
+    greens: {
+      name: 'Greens',
+      stops: [
+        { pos: 0.0, color: [247, 252, 245] },
+        { pos: 0.17, color: [229, 245, 224] },
+        { pos: 0.33, color: [199, 233, 192] },
+        { pos: 0.5, color: [161, 217, 155] },
+        { pos: 0.67, color: [116, 196, 118] },
+        { pos: 0.83, color: [49, 163, 84] },
+        { pos: 1.0, color: [0, 109, 44] }
+      ]
+    },
+    purples: {
+      name: 'Purples',
+      stops: [
+        { pos: 0.0, color: [252, 251, 253] },
+        { pos: 0.17, color: [239, 237, 245] },
+        { pos: 0.33, color: [218, 218, 235] },
+        { pos: 0.5, color: [188, 189, 220] },
+        { pos: 0.67, color: [158, 154, 200] },
+        { pos: 0.83, color: [128, 125, 186] },
+        { pos: 1.0, color: [84, 39, 143] }
+      ]
+    },
+    greys: {
+      name: 'Greys',
+      stops: [
+        { pos: 0.0, color: [255, 255, 255] },
+        { pos: 0.17, color: [240, 240, 240] },
+        { pos: 0.33, color: [217, 217, 217] },
+        { pos: 0.5, color: [189, 189, 189] },
+        { pos: 0.67, color: [150, 150, 150] },
+        { pos: 0.83, color: [99, 99, 99] },
+        { pos: 1.0, color: [37, 37, 37] }
+      ]
+    },
+    // Perceptually uniform colormaps
     viridis: {
       name: 'Viridis',
       stops: [
@@ -82,6 +168,30 @@
         { pos: 1.0, color: [252, 255, 164] }
       ]
     },
+    magma: {
+      name: 'Magma',
+      stops: [
+        { pos: 0.0, color: [0, 0, 4] },
+        { pos: 0.17, color: [28, 16, 68] },
+        { pos: 0.33, color: [79, 18, 123] },
+        { pos: 0.5, color: [129, 37, 129] },
+        { pos: 0.67, color: [181, 54, 122] },
+        { pos: 0.83, color: [229, 80, 100] },
+        { pos: 1.0, color: [252, 253, 191] }
+      ]
+    },
+    cividis: {
+      name: 'Cividis',
+      stops: [
+        { pos: 0.0, color: [0, 32, 77] },
+        { pos: 0.17, color: [59, 60, 98] },
+        { pos: 0.33, color: [94, 88, 111] },
+        { pos: 0.5, color: [128, 118, 119] },
+        { pos: 0.67, color: [163, 150, 119] },
+        { pos: 0.83, color: [202, 185, 109] },
+        { pos: 1.0, color: [253, 231, 37] }
+      ]
+    },
     turbo: {
       name: 'Turbo',
       stops: [
@@ -94,30 +204,7 @@
         { pos: 1.0, color: [122, 4, 3] }
       ]
     },
-    blues: {
-      name: 'Blues',
-      stops: [
-        { pos: 0.0, color: [247, 251, 255] },
-        { pos: 0.17, color: [222, 235, 247] },
-        { pos: 0.33, color: [198, 219, 239] },
-        { pos: 0.5, color: [158, 202, 225] },
-        { pos: 0.67, color: [107, 174, 214] },
-        { pos: 0.83, color: [49, 130, 189] },
-        { pos: 1.0, color: [8, 81, 156] }
-      ]
-    },
-    greens: {
-      name: 'Greens',
-      stops: [
-        { pos: 0.0, color: [247, 252, 245] },
-        { pos: 0.17, color: [229, 245, 224] },
-        { pos: 0.33, color: [199, 233, 192] },
-        { pos: 0.5, color: [161, 217, 155] },
-        { pos: 0.67, color: [116, 196, 118] },
-        { pos: 0.83, color: [49, 163, 84] },
-        { pos: 1.0, color: [0, 109, 44] }
-      ]
-    },
+    // Legacy/Extra colormaps
     rdYlGn: {
       name: 'Red-Yellow-Green',
       stops: [
@@ -203,11 +290,24 @@
     if (!jobId) throw new Error('Missing jobId');
     if (!window.L) throw new Error('Leaflet not loaded');
 
-
-
     const mapEl = el('map');
     const mapContainerEl = el('map-container');
     if (!mapEl || !mapContainerEl) throw new Error('Map container not found in DOM');
+
+    // Clean up any existing map instance before creating a new one
+    if (mapEl._hfMap) {
+      try {
+        mapEl._hfMap.off();
+        mapEl._hfMap.remove();
+      } catch (e) {
+        console.warn('[Viewer] Error cleaning up previous map:', e);
+      }
+      mapEl._hfMap = null;
+    }
+
+    // Ensure loading overlay is visible at the start
+    const loadingOverlay = el('loading-overlay');
+    if (loadingOverlay) loadingOverlay.style.display = 'flex';
 
     // Initialize color map preview
     updateColorMapPreview('ylOrRd');
@@ -375,14 +475,22 @@
 
     function updateLegendGradient() {
       const legendGradient = el('legendGradient');
-      if (!legendGradient) return;
+      const colorMapPreview = el('colorMapPreview');
 
       const colorStops = getColorStops();
       const gradientStops = colorStops.map(s =>
         `rgb(${s.color[0]},${s.color[1]},${s.color[2]}) ${s.pos * 100}%`
       ).join(', ');
 
-      legendGradient.style.background = `linear-gradient(to top, ${gradientStops})`;
+      // Update legend (horizontal)
+      if (legendGradient) {
+        legendGradient.style.background = `linear-gradient(to right, ${gradientStops})`;
+      }
+
+      // Also update colormap preview in control panel
+      if (colorMapPreview) {
+        colorMapPreview.style.background = `linear-gradient(to right, ${gradientStops})`;
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -405,6 +513,10 @@
     // Outline settings
     let outlineWidth = 2.5;
     let outlineColor = '#000000';
+
+    // Points settings
+    let pointRadius = 6;
+    let pointColor = '#ff7800';
 
     if (opacitySlider) opacitySlider.value = String(currentOpacity);
     if (opacityValue) opacityValue.textContent = currentOpacity.toFixed(1);
@@ -682,6 +794,19 @@
       });
     }
 
+    function updatePointsStyle() {
+      if (!pointsLayer) return;
+      pointsLayer.eachLayer(layer => {
+        if (layer.setStyle) {
+          layer.setStyle({
+            radius: pointRadius,
+            fillColor: pointColor,
+            color: '#000'
+          });
+        }
+      });
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // DISPLAY MODES
     // ═══════════════════════════════════════════════════════════════════════════
@@ -722,7 +847,7 @@
     // Smoothness slider (for continuous mode)
     document.addEventListener('input', (e) => {
       if (e.target.id === 'smoothnessLevel') {
-        smoothness = safeNum(e.target.value, 3);
+        smoothness = safeNum(e.target.value, 1);
         if (displayMode === 'continuous' && canvasSmoothLayer) {
           canvasSmoothLayer._options.smoothness = smoothness;
           canvasSmoothLayer._update();
@@ -785,10 +910,27 @@
 
     // Points toggle
     showPoints?.addEventListener('change', function () {
+      const pOpts = document.getElementById('pointOptions');
+      if (pOpts) pOpts.style.display = 'block'; // Ensure visibility if needed, though mostly handled by flex layout
+
       if (!pointsLayer) return;
       if (this.checked) pointsLayer.addTo(map);
       else map.removeLayer(pointsLayer);
       el('togglePointsBtn')?.classList.toggle('hf-active', this.checked);
+    });
+
+    // Points settings
+    function updatePointSettings(e) {
+      if (e.target.id === 'pointRadius') pointRadius = safeNum(e.target.value, 6);
+      if (e.target.id === 'pointColor') pointColor = e.target.value;
+      updatePointsStyle();
+    }
+
+    document.addEventListener('input', (e) => {
+      if (['pointRadius', 'pointColor'].includes(e.target.id)) updatePointSettings(e);
+    });
+    document.addEventListener('change', (e) => {
+      if (e.target.id === 'pointColor') updatePointSettings(e);
     });
 
     // Opacity slider
@@ -906,7 +1048,7 @@
           if (data.features?.length) {
             pointsLayer = L.geoJSON(data, {
               pointToLayer: (_f, latlng) => L.circleMarker(latlng, {
-                radius: 6, fillColor: '#ff7800', color: '#000', weight: 1, opacity: 1, fillOpacity: 0.8
+                radius: pointRadius, fillColor: pointColor, color: '#000', weight: 1, opacity: 1, fillOpacity: 0.8
               }),
               onEachFeature: (feature, layer) => {
                 let html = '<b>Point</b><br>';
@@ -963,7 +1105,9 @@
         outlineWidth: safeNum(document.getElementById('outlineWidth')?.value, outlineWidth),
         outlineColor: document.getElementById('outlineColor')?.value || outlineColor,
         smoothness: smoothness,
-        colorMap: currentColorMap
+        colorMap: currentColorMap,
+        pointRadius: safeNum(document.getElementById('pointRadius')?.value, pointRadius),
+        pointColor: document.getElementById('pointColor')?.value || pointColor
       };
     }
 
@@ -1001,6 +1145,8 @@
           cell_border_color: settings.cellBorderColor,
           outline_width: settings.outlineWidth,
           outline_color: settings.outlineColor,
+          point_radius: settings.pointRadius,
+          point_color: settings.pointColor,
           smoothness: settings.smoothness,
           color_map: settings.colorMap,
           width_px: 3200,

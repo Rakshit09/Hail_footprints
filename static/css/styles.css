@@ -31,12 +31,13 @@ html {
 }
 
 /* Hide number input spinners */
-input[type=number]::-webkit-inner-spin-button, 
-input[type=number]::-webkit-outer-spin-button { 
-    -webkit-appearance: none; 
-    margin: 0; 
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }
-input[type=number] { 
+
+input[type=number] {
     -moz-appearance: textfield;
     appearance: textfield;
 }
@@ -386,7 +387,7 @@ input[type=number] {
     padding: 12px;
 }
 
-.control-panel.collapsed #panelHeader > div:first-child {
+.control-panel.collapsed #panelHeader>div:first-child {
     display: none;
 }
 
@@ -498,7 +499,7 @@ input[type=number] {
     color: white;
     font-size: 14px;
     font-weight: 500;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
     animation: toastSlideIn 0.25s ease-out;
 }
 
@@ -507,23 +508,37 @@ input[type=number] {
         opacity: 0;
         transform: translateX(100%);
     }
+
     to {
         opacity: 1;
         transform: translateX(0);
     }
 }
 
-.toast.success { background: #10b981; }
-.toast.error { background: #ef4444; }
-.toast.info { background: #0078D4; }
-.toast.warning { background: #f59e0b; }
+.toast.success {
+    background: #10b981;
+}
+
+.toast.error {
+    background: #ef4444;
+}
+
+.toast.info {
+    background: #0078D4;
+}
+
+.toast.warning {
+    background: #f59e0b;
+}
 
 /* =========================================
    Animations
    ========================================= */
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .animate-spin {
@@ -535,8 +550,15 @@ input[type=number] {
 }
 
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
 }
 
 /* =========================================
@@ -554,14 +576,14 @@ input[type=number] {
     body {
         padding: 1rem 0.5rem;
     }
-    
+
     .header-gradient {
         flex-direction: column;
         gap: 1.5rem;
         text-align: center;
     }
-    
-    .header-gradient > .flex {
+
+    .header-gradient>.flex {
         flex-direction: column;
         align-items: center;
     }
@@ -571,15 +593,15 @@ input[type=number] {
     body {
         padding: 0.5rem;
     }
-    
+
     .main-card {
         border-radius: 12px;
     }
-    
+
     #map {
         min-height: 400px;
     }
-    
+
     #controlPanel {
         width: 100% !important;
         position: relative !important;
@@ -588,21 +610,24 @@ input[type=number] {
         margin-top: 1rem;
     }
 }
+
 /* =========================================
    Fixed Control Panel Styles
    ========================================= */
 
 /* Ensure the panel sits above Leaflet controls (z-index 1000) */
 #controlPanel {
-    z-index: 2000 !important; 
+    z-index: 2000 !important;
     transition: width 0.3s ease, background 0.3s ease;
 }
 
 
 /* Use 'hf-collapsed' to match the JavaScript logic */
 .control-panel.hf-collapsed {
-    width: 50px !important; /* Shrink to button width */
-    height: 50px !important; /* Optional: make it a square/circle */
+    width: 50px !important;
+    /* Shrink to button width */
+    height: 50px !important;
+    /* Optional: make it a square/circle */
     overflow: hidden;
     background: white;
     border-radius: 12px;
@@ -624,7 +649,7 @@ input[type=number] {
 }
 
 /* Hide the "Controls" text when collapsed */
-.control-panel.hf-collapsed #panelHeader > div:first-child {
+.control-panel.hf-collapsed #panelHeader>div:first-child {
     display: none;
 }
 
@@ -635,31 +660,35 @@ input[type=number] {
     height: 100%;
     border-radius: 0;
 }
+
 .control-panel.hf-collapsed #panelToggle:hover {
     background: #f1f5f9;
 }
 
-#map { height: calc(100vh - 280px); min-height: 600px; }
-  
+#map {
+    height: calc(100vh - 280px);
+    min-height: 600px;
+}
+
 /* Outline options visibility */
 #outlineOptions {
-  transition: opacity 0.15s ease, max-height 0.15s ease;
+    transition: opacity 0.15s ease, max-height 0.15s ease;
 }
 
 #outlineOptions.hidden-options {
-  display: none !important;
-  opacity: 0;
-  max-height: 0;
-  overflow: hidden;
+    display: none !important;
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
 }
 
 #outlineOptions.visible-options {
-  display: block !important;
-  opacity: 1;
-  max-height: 200px;
+    display: block !important;
+    opacity: 1;
+    max-height: 200px;
 }
 
 /* Control panel collapse */
 .control-panel.hf-collapsed #panelContent {
-  display: none;
+    display: none;
 }
