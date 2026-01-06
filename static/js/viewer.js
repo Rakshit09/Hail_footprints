@@ -987,7 +987,8 @@
     async function loadLayers() {
       try {
         // Footprint (Polygons)
-        const footprintRes = await fetch(`/geojson/${jobId}`);
+        const footprintRes = await fetch(`geojson/${jobId}`);
+        console.log(footprintRes);
         if (footprintRes.ok) {
           const data = await footprintRes.json();
           geoJsonData = data;
@@ -1026,7 +1027,7 @@
         }
 
         // Outline
-        const outlineRes = await fetch(`/footprint_geojson/${jobId}`);
+        const outlineRes = await fetch(`footprint_geojson/${jobId}`);
         if (outlineRes.ok) {
           const data = await outlineRes.json();
           if (data.features?.length) {
@@ -1042,7 +1043,7 @@
         }
 
         // Points
-        const pointsRes = await fetch(`/points_geojson/${jobId}`);
+        const pointsRes = await fetch(`points_geojson/${jobId}`);
         if (pointsRes.ok) {
           const data = await pointsRes.json();
           if (data.features?.length) {
@@ -1156,7 +1157,7 @@
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 120000);
 
-        const res = await fetch(`/render_map/${jobId}`, {
+        const res = await fetch(`render_map/${jobId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(exportData),

@@ -3,449 +3,340 @@ import uuid
 import json
 import threading
 import ssl
-from pathlib import Path
-from datetime import datetime
+import time
 import io
 import base64
 import re
+import traceback
+import warnings
+from pathlib import Path
+from datetime import datetime
+
 import numpy as np
 import pandas as pd
-from flask import (Flask, render_template, request, jsonify, send_from_directory, url_for, session, send_file)
-import warnings
+import requests
+import urllib3
+from flask import (Flask, render_template, request, jsonify, send_from_directory, 
+                   url_for, session, send_file, Response, make_response)
 from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
+from flask_cors import CORS
 from pyproj import Transformer
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import geopandas as gpd
+
+# -- Import your local modules --
 from config import Config
 from processing.footprint import Params, run_footprint, get_processing_status
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
+# ==========================================
+# SSL / NETWORK SETUP
+# ==========================================
 try:
-    # disable SSL verification 
     os.environ['CURL_CA_BUNDLE'] = ''
     os.environ['REQUESTS_CA_BUNDLE'] = ''
-    
-    # disable SSL warnings
-    import urllib3
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    
-    # unverified SSL context for urllib
     ssl._create_default_https_context = ssl._create_unverified_context
-    
-    print("[SSL] Certificate verification disabled for tile fetching")
+    print("[SSL] Certificate verification disabled")
 except Exception as e:
-    print(f"[SSL] Could not disable SSL verification: {e}")
+    print(f"[SSL] Error disabling SSL: {e}")
 
+# Monkey patch requests for internal logic
+_original_request = requests.Session.request
+def _patched_request(self, method, url, **kwargs):
+    kwargs['verify'] = False
+    return _original_request(self, method, url, **kwargs)
+requests.Session.request = _patched_request
+
+# ==========================================
+# APP SETUP
+# ==========================================
 app = Flask(__name__)
 app.config.from_object(Config)
-app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024  # 1GB
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024 
+
+CORS(app, resources={r"/*": {"origins": "*"}})
+
 socketio = SocketIO(
     app,
     async_mode='threading',
     ping_timeout=60,
     ping_interval=25,
     cors_allowed_origins="*",
-    max_http_buffer_size=1024 * 1024 * 1024,  # 1GB
-    async_handlers=True)
+    max_http_buffer_size=100 * 1024 * 1024, 
+    async_handlers=True
+)
 
+# Ensure folders exist
+Config.UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
+Config.OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
 
-app.secret_key = 'supersecretkey'
-# store processing jobs
-processing_jobs = {}
+# ==========================================
+# STATE MANAGEMENT (FILE BASED)
+# ==========================================
+def get_status_file(job_id):
+    """Path to the status JSON file for a specific job."""
+    return Config.OUTPUT_FOLDER / job_id / 'status.json'
 
+def save_job_state(job_id, data):
+    """
+    Save job state to disk atomically.
+    This enables sharing state between multiple Gunicorn workers.
+    """
+    try:
+        file_path = get_status_file(job_id)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Sanitize data to ensure it's JSON serializable
+        clean_data = sanitize_for_json(data)
+        
+        # Atomic write: write to temp file then rename
+        temp_path = file_path.with_suffix('.tmp')
+        with open(temp_path, 'w') as f:
+            json.dump(clean_data, f)
+        os.replace(temp_path, file_path)
+    except Exception as e:
+        print(f"Error saving state for {job_id}: {e}")
+
+def load_job_state(job_id):
+    """Load job state from disk."""
+    try:
+        file_path = get_status_file(job_id)
+        if not file_path.exists():
+            return None
+        with open(file_path, 'r') as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+# ==========================================
+# UTILITY FUNCTIONS
+# ==========================================
+def sanitize_for_json(obj):
+    """Recursively clean data for JSON response."""
+    if obj is None: return None
+    # Handle Path objects (convert to string)
+    if isinstance(obj, Path): return str(obj)
+    if isinstance(obj, dict): return {k: sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, list): return [sanitize_for_json(v) for v in obj]
+    if isinstance(obj, (np.integer, np.int64, np.int32)): return int(obj)
+    if isinstance(obj, (np.floating, np.float64, np.float32)):
+        return None if (np.isnan(obj) or np.isinf(obj)) else float(obj)
+    if isinstance(obj, np.ndarray): return sanitize_for_json(obj.tolist())
+    if isinstance(obj, np.bool_): return bool(obj)
+    if pd.isna(obj): return None
+    return obj
+    
+
+def make_json_response(data, status_code=200):
+    """Helper to force proper JSON headers."""
+    response = make_response(json.dumps(sanitize_for_json(data)), status_code)
+    response.headers['Content-Type'] = 'application/json; charset=utf-8'
+    return response
 
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in Config.ALLOWED_EXTENSIONS
 
-
-def guess_column_type(col_name: str) -> str:
-    """guess column type based on strict name patterns."""
-    
-    col_lower = col_name.lower().strip()
-    
-    # LATITUDE 
-    if col_lower in ['lat', 'latitude', 'y', 'y_coord', 'lat_dd', 'slat', 'start_lat']:
-        return 'latitude'
-        
-    if re.search(r'(^|[\s_])(lat|latitude)([\s_]|$)', col_lower):
-        return 'latitude'
-    
-    # LONGITUDE 
-    if col_lower in ['lon', 'long', 'lng', 'longitude', 'x', 'x_coord', 'lon_dd', 'slon', 'start_lon']:
-        return 'longitude'
-        
-    if re.search(r'(^|[\s_])(lon|lng|long|longitude)([\s_]|$)', col_lower):
-        return 'longitude'
-    
-    # HAIL SIZE 
-    if col_lower in ['max_hail_diameter','max_size', 'hail_size', 'hailsize', 'maximum_hail_size', 'hail', 'size', 'diameter', 'diam', 'mag', 'magnitude', 'hail_size']:
-        return 'hail_size'
-    
-    
+def guess_column_type(col_name):
+    col_lower = str(col_name).lower().strip()
+    # Lat
+    if col_lower in ['lat', 'latitude', 'y', 'y_coord', 'lat_dd', 'slat']: return 'latitude'
+    if re.search(r'(^|[\s_])(lat|latitude)([\s_]|$)', col_lower): return 'latitude'
+    # Lon
+    if col_lower in ['lon', 'long', 'lng', 'longitude', 'x', 'x_coord', 'lon_dd', 'slon']: return 'longitude'
+    if re.search(r'(^|[\s_])(lon|lng|long|longitude)([\s_]|$)', col_lower): return 'longitude'
+    # Hail
+    if any(x in col_lower for x in ['hail', 'size', 'diameter', 'mag']): return 'hail_size'
     return 'unknown'
 
+# ==========================================
+# ERROR HANDLERS
+# ==========================================
+@app.after_request
+def add_header(response):
+    if request.path.startswith('/upload') or request.path.startswith('/process'):
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
 
-def sanitize_for_json(obj):
-    """
-    recursively sanitize an object for JSON serialization
-    handles NaN, Inf, numpy types, etc
-    """
-    if obj is None:
-        return None
-    elif isinstance(obj, dict):
-        return {k: sanitize_for_json(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [sanitize_for_json(v) for v in obj]
-    elif isinstance(obj, (np.integer, np.int64, np.int32, np.int16, np.int8)):
-        return int(obj)
-    elif isinstance(obj, (np.floating, np.float64, np.float32, np.float16)):
-        if np.isnan(obj) or np.isinf(obj):
-            return None
-        return float(obj)
-    elif isinstance(obj, float):
-        if np.isnan(obj) or np.isinf(obj):
-            return None
-        return obj
-    elif isinstance(obj, np.ndarray):
-        return sanitize_for_json(obj.tolist())
-    elif isinstance(obj, np.bool_):
-        return bool(obj)
-    elif pd.isna(obj):
-        return None
-    else:
-        return obj
-
-
-@app.route('/')
-def index():
-    """main page with upload form"""
-    max_upload_bytes = getattr(Config, 'MAX_CONTENT_LENGTH', 50 * 1024 * 1024)
-    max_upload_mb = int(max_upload_bytes / (1024 * 1024))
-    allowed_ext = sorted(list(getattr(Config, 'ALLOWED_EXTENSIONS', {'csv'})))
-    return render_template(
-        'index.html',
-        max_upload_bytes=max_upload_bytes,
-        max_upload_mb=max_upload_mb,
-        allowed_ext=allowed_ext
-    )
-
-
-@app.route('/upload', methods=['POST'])
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    """handle file upload and return column info"""
-    try:
-        # Check content length first
-        content_length = request.content_length
-        max_size = app.config.get('MAX_CONTENT_LENGTH', 50 * 1024 * 1024)
-        
-        if content_length and content_length > max_size:
-            return jsonify({
-                'error': f'File too large. Maximum size is {max_size // (1024*1024)}MB'
-            }), 413
-        
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file provided'}), 400
-        
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
-        
-        if not allowed_file(file.filename):
-            allowed = ', '.join(Config.ALLOWED_EXTENSIONS)
-            return jsonify({'error': f'File type not allowed. Supported: {allowed}'}), 400
-        
-        # Generate unique ID for this session
-        job_id = str(uuid.uuid4())[:8]
-        filename = secure_filename(file.filename)
-        
-        # Handle empty filename after sanitization
-        if not filename:
-            filename = f"upload_{job_id}.csv"
-        
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        saved_filename = f"{job_id}_{timestamp}_{filename}"
-        
-        # Ensure upload folder exists
-        Config.UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
-        
-        filepath = Config.UPLOAD_FOLDER / saved_filename
-        
-        # Save file
-        try:
-            file.save(str(filepath))
-        except Exception as e:
-            return jsonify({'error': f'Failed to save file: {str(e)}'}), 500
-        
-        # Verify file was saved
-        if not filepath.exists():
-            return jsonify({'error': 'File was not saved correctly'}), 500
-        
-        file_size = filepath.stat().st_size
-        if file_size == 0:
-            filepath.unlink()  # Delete empty file
-            return jsonify({'error': 'Uploaded file is empty'}), 400
-        
-        print(f"[Upload] Saved file: {saved_filename} ({file_size} bytes)")
-        
-        # Parse columns
-        try:
-            if filename.lower().endswith('.csv'):
-                # Try different encodings
-                encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
-                df_preview = None
-                
-                for encoding in encodings:
-                    try:
-                        df_preview = pd.read_csv(filepath, nrows=25, encoding=encoding)
-                        break
-                    except UnicodeDecodeError:
-                        continue
-                    except Exception as e:
-                        print(f"[Upload] CSV parse error with {encoding}: {e}")
-                        continue
-                
-                if df_preview is None:
-                    return jsonify({'error': 'Could not parse CSV file. Check file encoding.'}), 400
-                
-                # Count total rows efficiently
-                try:
-                    with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-                        row_count = sum(1 for _ in f) - 1  # Subtract header
-                except:
-                    row_count = len(pd.read_csv(filepath, usecols=[0]))
-                    
-            else:
-                import geopandas as gpd
-                gdf = gpd.read_file(str(filepath))
-                df_preview = pd.DataFrame(gdf.drop(columns='geometry', errors='ignore')).head(25)
-                row_count = len(gdf)
-            
-            columns = list(df_preview.columns)
-            
-            if len(columns) == 0:
-                return jsonify({'error': 'No columns found in file'}), 400
-            
-            # Auto-detect with scoring/prioritization
-            best_matches = {}
-            
-            for col in columns:
-                col_type = guess_column_type(col)
-                
-                if col_type != 'unknown':
-                    col_lower = col.lower()
-                    score = 3  # Default score (worst)
-                    
-                    # Scoring rules
-                    if col_type == 'latitude':
-                        if col_lower in ['latitude', 'lat', 'y', 'lat_dd']:
-                            score = 1
-                        elif 'start' in col_lower or col_lower == 'slat':
-                            score = 2
-                            
-                    elif col_type == 'longitude':
-                        if col_lower in ['longitude', 'lon', 'long', 'x', 'lon_dd', 'lng']:
-                            score = 1
-                        elif 'start' in col_lower or col_lower == 'slon':
-                            score = 2
-                    
-                    elif col_type == 'hail_size':
-                        if col_lower in ['max_hail_diameter', 'hail_size', 'hailsize', 'maximum_hail_diameter']:
-                            score = 1
-                        elif 'max' in col_lower or 'diam' in col_lower:
-                            score = 2
-
-                    if col_type not in best_matches:
-                        best_matches[col_type] = {'col': col, 'score': score}
-                    else:
-                        if score < best_matches[col_type]['score']:
-                            best_matches[col_type] = {'col': col, 'score': score}
-            
-            column_suggestions = {k: v['col'] for k, v in best_matches.items()}
-            
-            # Convert to records and sanitize
-            sample_data = df_preview.to_dict('records')
-            sample_data = sanitize_for_json(sample_data)
-            
-            response_data = {
-                'success': True,
-                'job_id': job_id,
-                'filename': saved_filename,
-                'columns': columns,
-                'suggestions': column_suggestions,
-                'sample_data': sample_data,
-                'row_count': row_count
-            }
-            
-            print(f"[Upload] Success: {len(columns)} columns, {row_count} rows")
-            
-            return jsonify(response_data)
-            
-        except pd.errors.EmptyDataError:
-            return jsonify({'error': 'File is empty or has no data'}), 400
-        except pd.errors.ParserError as e:
-            return jsonify({'error': f'Failed to parse file: {str(e)}'}), 400
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            return jsonify({'error': f'Failed to parse file: {str(e)}'}), 400
-            
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': f'Upload failed: {str(e)}'}), 500
-
-
-# Add error handlers for common HTTP errors
 @app.errorhandler(413)
 def request_entity_too_large(error):
-    """Handle file too large error"""
-    return jsonify({'error': 'File too large. Maximum upload size exceeded.'}), 413
-
+    return make_json_response({'error': 'File too large'}, 413)
 
 @app.errorhandler(500)
-def internal_server_error(error):
-    """Handle internal server error"""
-    return jsonify({'error': 'Internal server error. Please try again.'}), 500
+def internal_error(error):
+    return make_json_response({'error': 'Internal server error'}, 500)
 
+@app.errorhandler(404)
+def not_found(error):
+    if request.path.startswith('/status') or request.path.startswith('/process'):
+        return make_json_response({'error': 'Resource not found'}, 404)
+    return render_template('error.html', message='Page not found'), 404
 
-@app.errorhandler(400)
-def bad_request(error):
-    """Handle bad request error"""
-    return jsonify({'error': 'Bad request. Please check your input.'}), 400
+# ==========================================
+# MAIN ROUTES
+# ==========================================
+@app.route('/')
+def index():
+    max_bytes = getattr(Config, 'MAX_CONTENT_LENGTH', 50 * 1024 * 1024)
+    return render_template('index.html', max_upload_bytes=max_bytes)
 
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    try:
+        if 'file' not in request.files:
+            return make_json_response({'error': 'No file provided'}, 400)
+        
+        file = request.files['file']
+        if not file or file.filename == '':
+            return make_json_response({'error': 'No file selected'}, 400)
+        
+        if not allowed_file(file.filename):
+            return make_json_response({'error': 'File type not supported'}, 400)
+            
+        job_id = str(uuid.uuid4())[:8]
+        filename = secure_filename(file.filename) or f"upload_{job_id}.csv"
+        saved_name = f"{job_id}_{datetime.now().strftime('%H%M%S')}_{filename}"
+        
+        file_path = Config.UPLOAD_FOLDER / saved_name
+        file.save(str(file_path))
+        
+        # Parse preview
+        if filename.lower().endswith('.csv'):
+            try:
+                df = pd.read_csv(file_path, nrows=25)
+                # Quick row count
+                with open(file_path, 'rb') as f:
+                    row_count = sum(1 for _ in f) - 1
+            except:
+                df = pd.read_csv(file_path, nrows=25, encoding='latin1')
+                row_count = 0
+        else:
+            gdf = gpd.read_file(str(file_path))
+            df = pd.DataFrame(gdf.drop(columns='geometry', errors='ignore')).head(25)
+            row_count = len(gdf)
+            
+        columns = list(df.columns)
+        suggestions = {}
+        for c in columns:
+            t = guess_column_type(c)
+            if t != 'unknown': suggestions[t] = c
+            
+        return make_json_response({
+            'success': True,
+            'job_id': job_id,
+            'filename': saved_name,
+            'columns': columns,
+            'suggestions': suggestions,
+            'sample_data': df.to_dict('records'),
+            'row_count': row_count
+        })
+        
+    except Exception as e:
+        traceback.print_exc()
+        return make_json_response({'error': str(e)}, 500)
 
 @app.route('/process', methods=['POST'])
 def process_footprint():
-    """start footprint processing"""
-    data = request.json
-    
-    required_fields = ['filename', 'lon_col', 'lat_col', 'hail_col', 'event_name']
-    for field in required_fields:
-        if field not in data:
-            return jsonify({'error': f'Missing required field: {field}'}), 400
-    
-    job_id = data.get('job_id', str(uuid.uuid4())[:8])
-    
-    # create job-specific output folder
-    output_folder = Config.OUTPUT_FOLDER / job_id
-    output_folder.mkdir(exist_ok=True)
-    
-    # build params
-    params = Params(
-        input_points=str(Config.UPLOAD_FOLDER / data['filename']),
-        hail_field=data['hail_col'],
-        event_name=data['event_name'],
-        lon_col=data['lon_col'],
-        lat_col=data['lat_col'],
-        grouping_threshold_km=float(data.get('grouping_threshold_km', 30.0)),
-        large_buffer_km=float(data.get('large_buffer_km', 10.0)),
-        small_buffer_km=float(data.get('small_buffer_km', 5.0)),
-        out_folder=str(output_folder),
-        job_id=job_id,
-    )
-    
-    # store job info
-    processing_jobs[job_id] = {
-        'status': 'queued',
-        'progress': 0,
-        'message': 'Initializing...',
-        'params': params,
-        'result': None,
-        'error': None
-    }
-    
-    # start processing in background thread
-    thread = threading.Thread(
-        target=run_processing_job,
-        args=(job_id, params)
-    )
-    thread.start()
-    
-    return jsonify({
-        'success': True,
-        'job_id': job_id,
-        'message': 'Processing started'
-    })
-
-
-def run_processing_job(job_id: str, params: Params):
-    """run processing in background thread"""
-    def progress_callback(progress: int, message: str):
-        processing_jobs[job_id]['progress'] = progress
-        processing_jobs[job_id]['message'] = message
-        socketio.emit('progress', {
-            'job_id': job_id,
-            'progress': progress,
-            'message': message
-        })
-    
+    """Start processing job."""
     try:
-        processing_jobs[job_id]['status'] = 'processing'
-        result = run_footprint(params, progress_callback=progress_callback)
+        data = request.json
+        if not data:
+            return make_json_response({'error': 'No JSON data'}, 400)
+
+        job_id = data.get('job_id') or str(uuid.uuid4())[:8]
         
-        # sanitize result for JSON
-        result = sanitize_for_json(result)
+        # Create output folder
+        out_dir = Config.OUTPUT_FOLDER / job_id
+        out_dir.mkdir(parents=True, exist_ok=True)
         
-        processing_jobs[job_id]['status'] = 'completed'
-        processing_jobs[job_id]['progress'] = 100
-        processing_jobs[job_id]['result'] = result
+        params = Params(
+            input_points=str(Config.UPLOAD_FOLDER / data['filename']),
+            hail_field=data['hail_col'],
+            event_name=data['event_name'],
+            lon_col=data['lon_col'],
+            lat_col=data['lat_col'],
+            grouping_threshold_km=float(data.get('grouping_threshold_km', 30.0)),
+            large_buffer_km=float(data.get('large_buffer_km', 10.0)),
+            small_buffer_km=float(data.get('small_buffer_km', 5.0)),
+            out_folder=str(out_dir),
+            job_id=job_id
+        )
         
-        socketio.emit('completed', {
-            'job_id': job_id,
-            'result': result
-        })
+        # Initialize Status File
+        initial_state = {
+            'status': 'queued',
+            'progress': 0,
+            'message': 'Initializing...',
+            'params': {'event_name': data['event_name']},
+            'result': None
+        }
+        save_job_state(job_id, initial_state)
+        
+        # Start Thread
+        thread = threading.Thread(target=run_processing_job, args=(job_id, params))
+        thread.daemon = True
+        thread.start()
+        
+        return make_json_response({'success': True, 'job_id': job_id})
         
     except Exception as e:
-        import traceback
         traceback.print_exc()
-        processing_jobs[job_id]['status'] = 'error'
-        processing_jobs[job_id]['error'] = str(e)
-        
-        socketio.emit('error', {
-            'job_id': job_id,
-            'error': str(e)
-        })
+        return make_json_response({'error': str(e)}, 500)
 
+def run_processing_job(job_id, params):
+    """Background worker function."""
+    
+    # Load existing or create new state
+    state = load_job_state(job_id) or {}
+    
+    def progress_callback(progress, message):
+        # Update state
+        state['progress'] = progress
+        state['message'] = message
+        state['status'] = 'processing'
+        save_job_state(job_id, state)
+            
+    try:
+        progress_callback(1, "Starting analysis...")
+        
+        # Run the heavy logic
+        result = run_footprint(params, progress_callback=progress_callback)
+        
+        # Completion
+        state['status'] = 'completed'
+        state['progress'] = 100
+        state['message'] = 'Done'
+        state['result'] = result
+        save_job_state(job_id, state)
+        
+    except Exception as e:
+        traceback.print_exc()
+        state['status'] = 'error'
+        state['error'] = str(e)
+        save_job_state(job_id, state)
 
 @app.route('/status/<job_id>')
 def get_status(job_id):
-    """get processing status"""
-    if job_id not in processing_jobs:
-        return jsonify({'error': 'Job not found'}), 404
-    
-    job = processing_jobs[job_id]
-    return jsonify(sanitize_for_json({
-        'status': job['status'],
-        'progress': job['progress'],
-        'message': job['message'],
-        'result': job['result'],
-        'error': job['error']
-    }))
+    """Check status via file system."""
+    state = load_job_state(job_id)
+    if not state:
+        # If ID is valid format but file not found, likely starting up
+        return make_json_response({'status': 'queued', 'progress': 0, 'message': 'Starting...'})
+    return make_json_response(state)
 
-@app.route('/health')
-def health_check():
-    """Health check endpoint for Posit Connect"""
-    return jsonify({
-        'status': 'ok',
-        'upload_folder_exists': Config.UPLOAD_FOLDER.exists(),
-        'output_folder_exists': Config.OUTPUT_FOLDER.exists(),
-        'upload_folder_writable': os.access(Config.UPLOAD_FOLDER, os.W_OK) if Config.UPLOAD_FOLDER.exists() else False,
-    })
 @app.route('/viewer/<job_id>')
 def viewer(job_id):
-    """interactive map viewer"""
-    if job_id not in processing_jobs:
+    state = load_job_state(job_id)
+    if not state:
         return render_template('error.html', message='Job not found'), 404
     
-    job = processing_jobs[job_id]
-    if job['status'] != 'completed':
-        return render_template('error.html', message='Processing not complete'), 400
-    
-    return render_template('viewer.html', 
-                          job_id=job_id,
-                          result=job['result'],
-                          event_name=job['params'].event_name)
+    event_name = state.get('params', {}).get('event_name', 'Event')
+    return render_template('viewer.html', job_id=job_id, result=state.get('result'), event_name=event_name)
 
 
 @app.route('/outputs/<job_id>/<filename>')
@@ -457,80 +348,63 @@ def serve_output(job_id, filename):
 
 @app.route('/geojson/<job_id>')
 def get_geojson(job_id):
-    """get GeoJSON data for the map"""
-    if job_id not in processing_jobs:
-        return jsonify({'error': 'Job not found'}), 404
+    state = load_job_state(job_id)
+    if not state or not state.get('result'):
+        print(f"[404 Error] Job {job_id} not ready or has no result")
+        return make_json_response({'error': 'Not ready'}, 404)
+        
+    # Get raw filename/path from result
+    raw_fname = state['result'].get('geojson')
+    if not raw_fname: 
+        print(f"[404 Error] Job {job_id} result has no 'geojson' key")
+        return make_json_response({'error': 'No file recorded'}, 404)
     
-    job = processing_jobs[job_id]
-    if job['status'] != 'completed' or not job['result']:
-        return jsonify({'error': 'No data available'}), 400
+    # FIX: Ensure we only use the filename, not a full path from a previous environment
+    filename = Path(raw_fname).name
     
-    # get filename from result
-    geojson_filename = job['result'].get('geojson', '')
-    if not geojson_filename:
-        return jsonify({'error': 'GeoJSON not found'}), 404
+    # Construct expected path
+    file_path = Config.OUTPUT_FOLDER / job_id / filename
     
-    # build full path using job's output folder
-    geojson_path = Config.OUTPUT_FOLDER / job_id / geojson_filename
+    if not file_path.exists(): 
+        print(f"[404 Error] File not found at: {file_path}")
+        return make_json_response({'error': 'File missing on disk'}, 404)
     
-    if not geojson_path.exists():
-        return jsonify({'error': f'GeoJSON file not found: {geojson_filename}'}), 404
-    
-    with open(geojson_path, 'r') as f:
-        data = json.load(f)
-    
-    return jsonify(sanitize_for_json(data))
-
+    try:
+        with open(file_path, 'r') as f:
+            return make_json_response(json.load(f))
+    except Exception as e:
+        print(f"[500 Error] Failed to read JSON: {e}")
+        return make_json_response({'error': 'Corrupt file'}, 500)
 
 @app.route('/footprint_geojson/<job_id>')
 def get_footprint_geojson(job_id):
-    """get dissolved footprint GeoJSON"""
-    if job_id not in processing_jobs:
-        return jsonify({'error': 'Job not found'}), 404
+    state = load_job_state(job_id)
+    if not state or not state.get('result'): 
+        return make_json_response({'error': 'Not ready'}, 404)
     
-    job = processing_jobs[job_id]
-    if job['status'] != 'completed' or not job['result']:
-        return jsonify({'error': 'No data available'}), 400
+    raw_fname = state['result'].get('footprint_geojson')
+    if not raw_fname: return make_json_response({'error': 'No file'}, 404)
     
-    geojson_filename = job['result'].get('footprint_geojson', '')
-    if not geojson_filename:
-        return jsonify({'error': 'Footprint GeoJSON not found'}), 404
+    # FIX: Use .name to strip directories
+    file_path = Config.OUTPUT_FOLDER / job_id / Path(raw_fname).name
     
-    geojson_path = Config.OUTPUT_FOLDER / job_id / geojson_filename
-    
-    if not geojson_path.exists():
-        return jsonify({'error': f'Footprint GeoJSON file not found: {geojson_filename}'}), 404
-    
-    with open(geojson_path, 'r') as f:
-        data = json.load(f)
-    
-    return jsonify(sanitize_for_json(data))
-
+    if not file_path.exists(): return make_json_response({'error': 'File missing'}, 404)
+    with open(file_path, 'r') as f: return make_json_response(json.load(f))
 
 @app.route('/points_geojson/<job_id>')
 def get_points_geojson(job_id):
-    """get input points as GeoJSON"""
-    if job_id not in processing_jobs:
-        return jsonify({'error': 'Job not found'}), 404
+    state = load_job_state(job_id)
+    if not state or not state.get('result'): 
+        return make_json_response({'error': 'Not ready'}, 404)
     
-    job = processing_jobs[job_id]
-    if job['status'] != 'completed' or not job['result']:
-        return jsonify({'error': 'No data available'}), 400
+    raw_fname = state['result'].get('points_geojson')
+    if not raw_fname: return make_json_response({'error': 'No file'}, 404)
     
-    geojson_filename = job['result'].get('points_geojson', '')
-    if not geojson_filename:
-        return jsonify({'error': 'Points GeoJSON not found'}), 404
+    # FIX: Use .name to strip directories
+    file_path = Config.OUTPUT_FOLDER / job_id / Path(raw_fname).name
     
-    geojson_path = Config.OUTPUT_FOLDER / job_id / geojson_filename
-    
-    if not geojson_path.exists():
-        return jsonify({'error': f'Points GeoJSON file not found: {geojson_filename}'}), 404
-    
-    with open(geojson_path, 'r') as f:
-        data = json.load(f)
-    
-    return jsonify(sanitize_for_json(data))
-
+    if not file_path.exists(): return make_json_response({'error': 'File missing'}, 404)
+    with open(file_path, 'r') as f: return make_json_response(json.load(f))
 
 # basemap configurations
 BASEMAPS = {
@@ -704,9 +578,6 @@ def render_map(job_id):
     # NEW: display mode and color map from viewer
     display_mode = data.get('display_mode', 'cells')  # 'cells' or 'continuous'
     color_map = data.get('color_map', 'ylOrRd')
-    # Point settings
-    point_radius = float(data.get('point_radius', 6))
-    point_color = data.get('point_color', '#ff7800')
     
     output_folder = Config.OUTPUT_FOLDER / job_id
     result = job['result']
@@ -732,8 +603,6 @@ def render_map(job_id):
             outline_color=outline_color,
             display_mode=display_mode,
             color_map=color_map,
-            point_radius=point_radius,
-            point_color=point_color,
         )
         
         return send_file(
@@ -897,8 +766,6 @@ def generate_map_png(
     outline_color='#000000',
     display_mode='cells',
     color_map='ylOrRd',
-    point_radius=3,
-    point_color='#ff7800',
 ):
     """generate a PNG map with specified settings"""
     import matplotlib
@@ -932,28 +799,28 @@ def generate_map_png(
     points_gdf = None
     
     if show_footprint and geojson_file:
-        geojson_path = output_folder / geojson_file
-        if geojson_path.exists():
-            footprint_gdf = gpd.read_file(geojson_path)
+        p = output_folder / Path(geojson_file).name 
+        if p.exists(): 
+            footprint_gdf = gpd.read_file(p)
             print(f"[MapGen] Loaded footprint: {len(footprint_gdf)} features")
         else:
-            print(f"[MapGen] WARNING: Footprint file not found: {geojson_path}")
+            print(f"[MapGen] WARNING: Footprint file not found: {p}")
     
     if show_outline and footprint_file:
-        outline_path = output_folder / footprint_file
-        if outline_path.exists():
-            outline_gdf = gpd.read_file(outline_path)
+        p = output_folder / Path(footprint_file).name 
+        if p.exists(): 
+            outline_gdf = gpd.read_file(p)
             print(f"[MapGen] Loaded outline: {len(outline_gdf)} features")
         else:
-            print(f"[MapGen] WARNING: Outline file not found: {outline_path}")
+            print(f"[MapGen] WARNING: Outline file not found: {p}")
     
     if show_points and points_file:
-        points_path = output_folder / points_file
-        if points_path.exists():
-            points_gdf = gpd.read_file(points_path)
+        p = output_folder / Path(points_file).name 
+        if p.exists(): 
+            points_gdf = gpd.read_file(p)
             print(f"[MapGen] Loaded points: {len(points_gdf)} features")
         else:
-            print(f"[MapGen] WARNING: Points file not found: {points_path}")
+            print(f"[MapGen] WARNING: Points file not found: {p}")
     
     # validate we have at least some data to render
     has_data = any([
@@ -1022,23 +889,13 @@ def generate_map_png(
     
     # Map viewer colormap names to matplotlib colormaps
     COLORMAP_MAPPING = {
-        # Sequential
         'ylOrRd': 'YlOrRd',
-        'orRd': 'OrRd',
-        'reds': 'Reds',
-        'ylGnBu': 'YlGnBu',
-        'blues': 'Blues',
-        'greens': 'Greens',
-        'purples': 'Purples',
-        'greys': 'Greys',
-        # Perceptually Uniform
         'viridis': 'viridis',
         'plasma': 'plasma',
         'inferno': 'inferno',
-        'magma': 'magma',
-        'cividis': 'cividis',
         'turbo': 'turbo',
-        # Legacy/Extra (from JavaScript definitions)
+        'blues': 'Blues',
+        'greens': 'Greens',
         'rdYlGn': 'RdYlGn',
         'spectral': 'Spectral',
         'coolwarm': 'coolwarm',
@@ -1208,19 +1065,15 @@ def generate_map_png(
     
     # plot points
     if show_points and points_3857 is not None and not points_3857.empty:
-        # Convert point_radius (which is in CSS/Leaflet units) to matplotlib marker size
-        # Leaflet circleMarker radius ~= pixel radius. Matplotlib markersize is area.
-        # markersize = π * r^2,  so for r=6, area~113. We scale roughly.
-        marker_size = (point_radius ** 2) * 1.5  # Rough conversion factor
         points_3857.plot(
             ax=ax,
-            color=point_color,
-            markersize=marker_size,
+            color='#ff7800',
+            markersize=50,
             edgecolor='black',
             linewidth=0.8,
             zorder=4,
         )
-        print(f"[MapGen] Plotted points with color {point_color} and radius {point_radius}")
+        print("[MapGen] Plotted points")
     
     # set the extent
     ax.set_xlim(ext_x1, ext_x2)
