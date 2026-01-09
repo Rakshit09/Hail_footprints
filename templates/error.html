@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Error - Hail Footprint Generator{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-lg">
+  <div class="rounded-3xl border border-rose-200/70 bg-rose-50 p-6 shadow-soft dark:border-rose-900/50 dark:bg-rose-950/40">
+    <div class="flex items-start gap-4">
+      <div class="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-600 text-white">
+        <i class="bi bi-exclamation-triangle"></i>
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="text-sm font-semibold text-rose-900 dark:text-rose-100">Something went wrong</div>
+        <div class="mt-2 text-sm text-rose-900/80 dark:text-rose-100/80">{{ message }}</div>
+        <div class="mt-5">
+          <a href="{{ url_for('index') }}"
+             class="inline-flex items-center gap-2 rounded-2xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-brand-700 active:scale-[0.99]">
+            <i class="bi bi-arrow-left"></i> Back to Home
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
