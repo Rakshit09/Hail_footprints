@@ -30,9 +30,8 @@ import geopandas as gpd
 from config import Config
 from processing.footprint import Params, run_footprint, get_processing_status
 from export_map import generate_map_png
-# ==========================================
-# SSL / NETWORK SETUP
-# ==========================================
+
+# ssl setup
 try:
     os.environ['CURL_CA_BUNDLE'] = ''
     os.environ['REQUESTS_CA_BUNDLE'] = ''
@@ -42,48 +41,41 @@ try:
 except Exception as e:
     print(f"[SSL] Error disabling SSL: {e}")
 
-# Monkey patch requests for internal logic
+# monkey patch requests for internal logic
 _original_request = requests.Session.request
 def _patched_request(self, method, url, **kwargs):
     kwargs['verify'] = False
     return _original_request(self, method, url, **kwargs)
 requests.Session.request = _patched_request
 
-# ==========================================
-# APP SETUP
-# ==========================================
+# app setup
 app = Flask(__name__)
 app.config.from_object(Config)
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024 
 
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# NOTE: No more SocketIO initialization
-
-# Ensure folders exist
+# ensure folders exist
 Config.UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 Config.OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
 
-# ==========================================
-# STATE MANAGEMENT (FILE BASED)
-# ==========================================
+# state management (file based)
 def get_status_file(job_id):
-    """Path to the status JSON file for a specific job."""
+    """path to the status JSON file for a specific job."""
     return Config.OUTPUT_FOLDER / job_id / 'status.json'
 
 def save_job_state(job_id, data):
-    """
-    Save job state to disk atomically.
-    This enables sharing state between multiple Gunicorn workers.
+    """save job state to disk atomically.
+    this enables sharing state between multiple Gunicorn workers.
     """
     try:
         file_path = get_status_file(job_id)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         
-        # Sanitize data to ensure it's JSON serializable
+        #  ensure data is realizable
         clean_data = sanitize_for_json(data)
         
-        # Atomic write: write to temp file then rename
+        # write to temp file then rename
         temp_path = file_path.with_suffix('.tmp')
         with open(temp_path, 'w') as f:
             json.dump(clean_data, f)
@@ -92,21 +84,19 @@ def save_job_state(job_id, data):
         print(f"Error saving state for {job_id}: {e}")
 
 def load_job_state(job_id):
-    """Load job state from disk."""
+    """load job state from disk."""
     try:
         file_path = get_status_file(job_id)
         if not file_path.exists():
             return None
-        with open(file_path, 'r') as f:
+        with open(file_path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception:
         return None
 
-# ==========================================
-# UTILITY FUNCTIONS
-# ==========================================
+# utility functions
 def sanitize_for_json(obj):
-    """Recursively clean data for JSON response."""
+    """recursively clean data for JSON response."""
     if obj is None: return None
     # Handle Path objects (convert to string)
     if isinstance(obj, Path): return str(obj)
@@ -396,7 +386,7 @@ def get_geojson(job_id):
         return make_json_response({'error': 'File missing on disk'}, 404)
     
     try:
-        with open(file_path, 'r') as f:
+        with open(file_path, 'r', encoding='utf-8') as f:
             return make_json_response(json.load(f))
     except Exception as e:
         print(f"[500 Error] Failed to read JSON: {e}")
@@ -415,7 +405,7 @@ def get_footprint_geojson(job_id):
     file_path = Config.OUTPUT_FOLDER / job_id / Path(raw_fname).name
     
     if not file_path.exists(): return make_json_response({'error': 'File missing'}, 404)
-    with open(file_path, 'r') as f: return make_json_response(json.load(f))
+    with open(file_path, 'r', encoding='utf-8') as f: return make_json_response(json.load(f))
 
 @app.route('/points_geojson/<job_id>')
 def get_points_geojson(job_id):
@@ -426,11 +416,10 @@ def get_points_geojson(job_id):
     raw_fname = state['result'].get('points_geojson')
     if not raw_fname: return make_json_response({'error': 'No file'}, 404)
     
-    # FIX: Use .name to strip directories
     file_path = Config.OUTPUT_FOLDER / job_id / Path(raw_fname).name
     
     if not file_path.exists(): return make_json_response({'error': 'File missing'}, 404)
-    with open(file_path, 'r') as f: return make_json_response(json.load(f))
+    with open(file_path, 'r', encoding='utf-8') as f: return make_json_response(json.load(f))
 
 @app.route('/grid_csv/<job_id>')
 def get_grid_csv(job_id):
@@ -595,7 +584,7 @@ def debug_job(job_id):
                 filepath = output_folder / Path(filename).name
                 if filepath.exists():
                     try:
-                        with open(filepath, 'r') as f:
+                        with open(filepath, 'r', encoding='utf-8') as f:
                             data = json.load(f)
                             geojson_check[key] = {
                                 'exists': True,

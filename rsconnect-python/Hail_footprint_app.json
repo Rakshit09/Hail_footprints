@@ -2,10 +2,10 @@
     "https://rconnect.dev.ajgco.com/": {
         "server_url": "https://rconnect.dev.ajgco.com/",
         "filename": "C:\\Users\\rajoshi\\Hail_footprint_app",
-        "app_url": "https://rconnect.dev.ajgco.com/content/168a7a70-55c2-4714-a73f-f6eec54b3962/",
-        "app_id": "387",
-        "app_guid": "168a7a70-55c2-4714-a73f-f6eec54b3962",
-        "title": "Hail",
+        "app_url": "https://rconnect.dev.ajgco.com/content/0be9de4c-3b35-4f27-9f39-003fbf67470e/",
+        "app_id": "397",
+        "app_guid": "0be9de4c-3b35-4f27-9f39-003fbf67470e",
+        "title": "Hail footprint",
         "app_mode": "python-api",
         "app_store_version": 1
     }

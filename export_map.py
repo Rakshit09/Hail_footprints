@@ -10,6 +10,134 @@ import warnings
 warnings.filterwarnings('ignore')
 import numpy as np
 import io
+import math
+import requests
+from PIL import Image
+from io import BytesIO
+
+
+def fetch_tiles_manually(ax, ext_x1, ext_y1, ext_x2, ext_y2, zoom, tile_url_template):
+    """
+    Manually fetch map tiles and compose them into a basemap.
+    This bypasses contextily and uses requests directly with SSL disabled.
+    """
+    print(f"[ManualTiles] Fetching tiles from: {tile_url_template[:50]}...")
+    
+    def deg2num(lat_deg, lon_deg, zoom):
+        """Convert lat/lon to tile numbers"""
+        lat_rad = math.radians(lat_deg)
+        n = 2.0 ** zoom
+        xtile = int((lon_deg + 180.0) / 360.0 * n)
+        ytile = int((1.0 - math.asinh(math.tan(lat_rad)) / math.pi) / 2.0 * n)
+        return (xtile, ytile)
+    
+    def num2deg(xtile, ytile, zoom):
+        """Convert tile numbers to lat/lon of the NW corner"""
+        n = 2.0 ** zoom
+        lon_deg = xtile / n * 360.0 - 180.0
+        lat_rad = math.atan(math.sinh(math.pi * (1 - 2 * ytile / n)))
+        lat_deg = math.degrees(lat_rad)
+        return (lat_deg, lon_deg)
+    
+    def latlon_to_mercator(lat, lon):
+        """Convert lat/lon to Web Mercator coordinates"""
+        x = lon * 20037508.34 / 180.0
+        y = math.log(math.tan((90 + lat) * math.pi / 360.0)) / (math.pi / 180.0)
+        y = y * 20037508.34 / 180.0
+        return x, y
+    
+    def mercator_to_latlon(x, y):
+        """Convert mercator to lat/lon"""
+        lon = x * 180.0 / 20037508.34
+        lat = math.atan(math.exp(y * math.pi / 20037508.34)) * 360.0 / math.pi - 90
+        return lat, lon
+    
+    # Get corner coordinates 
+    lat_min, lon_min = mercator_to_latlon(ext_x1, ext_y1)
+    lat_max, lon_max = mercator_to_latlon(ext_x2, ext_y2)
+    
+    # Get tile range
+    x_min, y_max = deg2num(lat_min, lon_min, zoom)
+    x_max, y_min = deg2num(lat_max, lon_max, zoom)
+    
+    # Correct order
+    if x_min > x_max:
+        x_min, x_max = x_max, x_min
+    if y_min > y_max:
+        y_min, y_max = y_max, y_min
+    
+    # Limit number of tiles
+    max_tiles = 100
+    num_tiles = (x_max - x_min + 1) * (y_max - y_min + 1)
+    if num_tiles > max_tiles:
+        print(f"[ManualTiles] Too many tiles ({num_tiles}), reducing zoom...")
+        return False
+    
+    print(f"[ManualTiles] Fetching {num_tiles} tiles (x: {x_min}-{x_max}, y: {y_min}-{y_max})")
+    
+    # Create session with SSL disabled
+    session = requests.Session()
+    session.verify = False
+    session.headers.update({
+        'User-Agent': 'HailFootprintApp/1.0 (Python/requests)',
+        'Accept': 'image/png,image/*'
+    })
+    
+    # Suppress SSL warnings
+    try:
+        import urllib3
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    except:
+        pass
+    
+    # Fetch tiles
+    tile_size = 256
+    tiles = {}
+    
+    for x in range(x_min, x_max + 1):
+        for y in range(y_min, y_max + 1):
+            url = tile_url_template.format(z=zoom, x=x, y=y)
+            try:
+                response = session.get(url, timeout=10)
+                if response.status_code == 200:
+                    img = Image.open(BytesIO(response.content))
+                    tiles[(x, y)] = img
+                else:
+                    print(f"[ManualTiles] Tile {x},{y} returned {response.status_code}")
+            except Exception as e:
+                print(f"[ManualTiles] Failed to fetch tile {x},{y}: {str(e)[:50]}")
+    
+    if not tiles:
+        print("[ManualTiles] No tiles fetched successfully")
+        return False
+    
+    print(f"[ManualTiles] Successfully fetched {len(tiles)} tiles")
+    
+    # Compose tiles into single image
+    width = (x_max - x_min + 1) * tile_size
+    height = (y_max - y_min + 1) * tile_size
+    basemap_img = Image.new('RGB', (width, height), (245, 245, 245))
+    
+    for (x, y), tile_img in tiles.items():
+        px = (x - x_min) * tile_size
+        py = (y - y_min) * tile_size
+        if tile_img.mode != 'RGB':
+            tile_img = tile_img.convert('RGB')
+        basemap_img.paste(tile_img, (px, py))
+    
+    # Calculate extent in web mercator
+    nw_lat, nw_lon = num2deg(x_min, y_min, zoom)
+    se_lat, se_lon = num2deg(x_max + 1, y_max + 1, zoom)
+    
+    nw_x, nw_y = latlon_to_mercator(nw_lat, nw_lon)
+    se_x, se_y = latlon_to_mercator(se_lat, se_lon)
+    
+    # Display the basemap
+    img_array = np.array(basemap_img)
+    ax.imshow(img_array, extent=[nw_x, se_x, se_y, nw_y], zorder=1, aspect='auto')
+    
+    print(f"[ManualTiles] Basemap composed and added to plot")
+    return True
 
 def generate_map_png(output_folder, geojson_file, footprint_file, points_file, bounds, basemap_id,
     show_footprint, show_outline, show_points, opacity, event_name, hail_min, hail_max,
@@ -261,9 +389,6 @@ def generate_map_png(output_folder, geojson_file, footprint_file, points_file, b
     basemap_added = False
     
     if HAS_CTX and basemap_id and basemap_id != 'none':
-        import math
-        import requests
-        
         # Disable SSL verification
         _original_get = requests.get
         def _patched_get(url, **kwargs):
