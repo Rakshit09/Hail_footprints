@@ -17,10 +17,7 @@ from io import BytesIO
 
 
 def fetch_tiles_manually(ax, ext_x1, ext_y1, ext_x2, ext_y2, zoom, tile_url_template):
-    """
-    Manually fetch map tiles and compose them into a basemap.
-    This bypasses contextily and uses requests directly with SSL disabled.
-    """
+    """Manually fetch map tiles and compose them into a basemap"""
     print(f"[ManualTiles] Fetching tiles from: {tile_url_template[:50]}...")
     
     def deg2num(lat_deg, lon_deg, zoom):
@@ -67,7 +64,7 @@ def fetch_tiles_manually(ax, ext_x1, ext_y1, ext_x2, ext_y2, zoom, tile_url_temp
         y_min, y_max = y_max, y_min
     
     # Limit number of tiles
-    max_tiles = 100
+    max_tiles = 36
     num_tiles = (x_max - x_min + 1) * (y_max - y_min + 1)
     if num_tiles > max_tiles:
         print(f"[ManualTiles] Too many tiles ({num_tiles}), reducing zoom...")
@@ -75,19 +72,19 @@ def fetch_tiles_manually(ax, ext_x1, ext_y1, ext_x2, ext_y2, zoom, tile_url_temp
     
     print(f"[ManualTiles] Fetching {num_tiles} tiles (x: {x_min}-{x_max}, y: {y_min}-{y_max})")
     
-    # Create session with proper SSL verification using certifi
+    #  SSL verification using certifi
     session = requests.Session()
     session.headers.update({
         'User-Agent': 'HailFootprintApp/1.0 (Python/requests)',
         'Accept': 'image/png,image/*'
     })
     
-    # Use certifi certificates for proper SSL verification
+    #  certifi certificates for SSL verification
     try:
         import certifi
         session.verify = certifi.where()
     except ImportError:
-        session.verify = True  # Use system certificates
+        session.verify = True  # system certificates
     
     # Fetch tiles
     tile_size = 256
@@ -186,7 +183,7 @@ def generate_map_png(output_folder, geojson_file, footprint_file, points_file, b
         print(f"[MapGen] Using viewer bounds (WGS84): [{extent_minx:.4f}, {extent_miny:.4f}, {extent_maxx:.4f}, {extent_maxy:.4f}]")
     elif footprint_gdf is not None and not footprint_gdf.empty:
         extent_minx, extent_miny, extent_maxx, extent_maxy = footprint_gdf.total_bounds
-        #  padding when using data bounds
+        #  padding 
         pad_x = (extent_maxx - extent_minx) * 0.05
         pad_y = (extent_maxy - extent_miny) * 0.05
         extent_minx -= pad_x
@@ -207,31 +204,29 @@ def generate_map_png(output_folder, geojson_file, footprint_file, points_file, b
     
     print(f"[MapGen] Initial 3857 extent: [{ext_x1:.0f}, {ext_y1:.0f}, {ext_x2:.0f}, {ext_y2:.0f}]")
     
-    # fix aspect ratio - expand bounds to match target image ratio
+    # fix aspect ratio 
     bounds_width_m = abs(ext_x2 - ext_x1)
     bounds_height_m = abs(ext_y2 - ext_y1)
     
     if bounds_width_m == 0 or bounds_height_m == 0:
         raise ValueError("Invalid bounds: zero width or height")
     
-    bounds_aspect = bounds_width_m / bounds_height_m  # W/H ratio of geographic bounds
-    target_aspect = float(width_px) / float(height_px)  # W/H ratio of output image
+    bounds_aspect = bounds_width_m / bounds_height_m  
+    target_aspect = float(width_px) / float(height_px)  
     
     print(f"[MapGen] Bounds aspect: {bounds_aspect:.3f}, Target aspect: {target_aspect:.3f}")
     
-    # adjust bounds to match target aspect ratio
+    # match target aspect ratio
     if abs(bounds_aspect - target_aspect) > 0.001:
         center_x = (ext_x1 + ext_x2) / 2
         center_y = (ext_y1 + ext_y2) / 2
         
         if bounds_aspect > target_aspect:
-            # Bounds are WIDER than target - need to expand HEIGHT
             new_height = bounds_width_m / target_aspect
             ext_y1 = center_y - new_height / 2
             ext_y2 = center_y + new_height / 2
             print(f"[MapGen] Expanded height: {bounds_height_m:.0f} -> {new_height:.0f}")
         else:
-            # Bounds are TALLER than target - need to expand WIDTH
             new_width = bounds_height_m * target_aspect
             ext_x1 = center_x - new_width / 2
             ext_x2 = center_x + new_width / 2
@@ -253,7 +248,7 @@ def generate_map_png(output_folder, geojson_file, footprint_file, points_file, b
     if points_gdf is not None and not points_gdf.empty:
         points_3857 = points_gdf.to_crs(epsg=3857)
     
-    # create figure with correct dimensions
+    # figure with correct dimensions
     dpi = 150
     fig_w_in = float(width_px) / dpi
     fig_h_in = float(height_px) / dpi
@@ -339,7 +334,7 @@ def generate_map_png(output_folder, geojson_file, footprint_file, points_file, b
                     rgba_img = cmap(norm_data)
                     rgba_img[..., 3] = alpha_map * opacity
                     
-                    # Plot with EXACT adjusted extent
+                    # EXACT adjusted extent
                     ax.imshow(rgba_img, 
                               extent=[rast_minx, rast_maxx, rast_miny, rast_maxy], 
                               origin='upper', zorder=2, interpolation='bicubic', 
@@ -354,12 +349,12 @@ def generate_map_png(output_folder, geojson_file, footprint_file, points_file, b
                     # Fallback
                     footprint_3857.plot(ax=ax, column='Hail_Size', cmap=cmap, norm=norm,
                                         alpha=opacity, linewidth=0, edgecolor='none', zorder=2)
-                    ax.set_aspect('auto')  # Reset after geopandas
+                    ax.set_aspect('auto') 
             else:
                 # CELLS MODE
                 footprint_3857.plot(ax=ax, column='Hail_Size', cmap=cmap, norm=norm,
                                     alpha=opacity, linewidth=0.1, edgecolor='#666666', zorder=2)
-                ax.set_aspect('auto')  # CRITICAL: Reset after geopandas plotting
+                ax.set_aspect('auto') 
                 print("[MapGen] Plotted cells mode")
         else:
             footprint_3857.plot(ax=ax, color='#fd8d3c', alpha=opacity, zorder=2)
@@ -379,16 +374,16 @@ def generate_map_png(output_folder, geojson_file, footprint_file, points_file, b
         ax.set_aspect('auto')
         print(f"[MapGen] Plotted points")
     
-    # ensure correct extent (after all plotting)
+    # ensure correct extent 
     ax.set_xlim(ext_x1, ext_x2)
     ax.set_ylim(ext_y1, ext_y2)
-    ax.set_aspect('auto')  # final override
+    ax.set_aspect('auto')  
     
     # add basemap
     basemap_added = False
     
     if HAS_CTX and basemap_id and basemap_id != 'none':
-        # Use certifi for proper SSL verification
+        # certifi SSL verification
         try:
             import certifi
             _original_get = requests.get
@@ -398,11 +393,11 @@ def generate_map_png(output_folder, geojson_file, footprint_file, points_file, b
                 return _original_get(url, **kwargs)
             requests.get = _patched_get
         except ImportError:
-            pass  # Use system certificates if certifi not available
+            pass  # system certificates 
         
-        # Calculate zoom
+        # zoom
         center_lat_3857 = (ext_y1 + ext_y2) / 2
-        # Convert center back to lat for zoom calculation
+        #  center to lat for zoom calc
         rev_transformer = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
         _, center_lat = rev_transformer.transform((ext_x1 + ext_x2) / 2, center_lat_3857)
         
@@ -412,8 +407,8 @@ def generate_map_png(output_folder, geojson_file, footprint_file, points_file, b
         initial_res = 156543.03392804097
         adj = max(0.15, math.cos(math.radians(center_lat)))
         zoom_f = math.log2((initial_res * adj) / max(1e-9, m_per_px))
-        zoom = int(round(zoom_f))
-        zoom = max(1, min(zoom, 18))
+        zoom = int(round(zoom_f))-1
+        zoom = max(1, min(zoom, 15))
         
         tile_urls = {
             'osm': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -448,13 +443,13 @@ def generate_map_png(output_folder, geojson_file, footprint_file, points_file, b
     if basemap_id == 'none' or not basemap_added:
         ax.set_facecolor('#f5f5f5')
     
-    # final extent enforcement (after basemap)
+    # final extent enforcement 
     ax.set_xlim(ext_x1, ext_x2)
     ax.set_ylim(ext_y1, ext_y2)
     ax.set_aspect('auto')
     ax.set_axis_off()
     
-    # add map elements (title, colorbar, scale)
+    # add map elements
     ax.set_position([0.02, 0.02, 0.90, 0.93]) 
     
     # Title
@@ -463,7 +458,7 @@ def generate_map_png(output_folder, geojson_file, footprint_file, points_file, b
     # Colorbar
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
-    cax = fig.add_axes([0.93, 0.15, 0.02, 0.6])  # [left, bottom, width, height]
+    cax = fig.add_axes([0.93, 0.15, 0.02, 0.6])
     cbar = fig.colorbar(sm, cax=cax)
     cbar.set_label('Hail Size (cm)', fontsize=12)
     cbar.ax.tick_params(labelsize=11)
