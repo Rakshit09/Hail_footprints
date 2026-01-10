@@ -21,22 +21,17 @@ from config import Config
 from processing.footprint import Params, run_footprint
 from export_map import generate_map_png
 
-# ssl setup
+# SSL setup 
 try:
-    os.environ['CURL_CA_BUNDLE'] = ''
-    os.environ['REQUESTS_CA_BUNDLE'] = ''
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    ssl._create_default_https_context = ssl._create_unverified_context
-    print("[SSL] Certificate verification disabled")
+    import certifi
+    os.environ['SSL_CERT_FILE'] = certifi.where()
+    os.environ['REQUESTS_CA_BUNDLE'] = certifi.where()
+    os.environ['CURL_CA_BUNDLE'] = certifi.where()
+    print(f"[SSL] Using certifi certificates: {certifi.where()}")
+except ImportError:
+    print("[SSL] Warning: certifi not installed, using system certificates")
 except Exception as e:
-    print(f"[SSL] Error disabling SSL: {e}")
-
-# monkey patch requests 
-_original_request = requests.Session.request
-def _patched_request(self, method, url, **kwargs):
-    kwargs['verify'] = False
-    return _original_request(self, method, url, **kwargs)
-requests.Session.request = _patched_request
+    print(f"[SSL] Error setting up SSL: {e}")
 
 # setup
 app = Flask(__name__)
@@ -117,31 +112,31 @@ def guess_column_type(col_name):
     """
     col_lower = str(col_name).lower().strip()
     
-    # Lat - exact matches (priority 1)
+    # Lat - exact  (priority 1)
     if col_lower in ['lat', 'latitude', 'y', 'y_coord', 'lat_dd', 'slat']: 
         return ('latitude', 1)
-    # Lat - partial matches (priority 2)
+    # Lat - partial  (priority 2)
     if re.search(r'(^|[\s_])(lat|latitude)([\s_]|$)', col_lower): 
         return ('latitude', 2)
     
-    # Lon - exact matches (priority 1)
+    # Lon - exact  (priority 1)
     if col_lower in ['lon', 'long', 'lng', 'longitude', 'x', 'x_coord', 'lon_dd', 'slon']: 
         return ('longitude', 1)
-    # Lon - partial matches (priority 2)
+    # Lon - partial  (priority 2)
     if re.search(r'(^|[\s_])(lon|lng|long|longitude)([\s_]|$)', col_lower): 
         return ('longitude', 2)
     
-    # Hail - exact matches (priority 1)
+    # Hail - exact  (priority 1)
     if col_lower in ['hail', 'hail_size', 'hailsize', 'size', 'diameter', 'mag', 'magnitude']:
         return ('hail_size', 1)
-    # Hail - partial matches (priority 2)
+    # Hail - partial  (priority 2)
     if any(x in col_lower for x in ['hail', 'size', 'diameter', 'mag']): 
         return ('hail_size', 2)
     
-    # QC - exact matches (priority 1)
+    # QC - exact  (priority 1)
     if col_lower in ['qc', 'qclevel', 'qc_level', 'quality', 'quality_level', 'qualitylevel', 'qc_flag', 'qcflag']:
         return ('qc_level', 1)
-    # QC - partial matches (priority 2)
+    # QC - partial  (priority 2)
     if re.search(r'(^|[\s_])(qc|quality)([\s_]|level)', col_lower):
         return ('qc_level', 2)
     

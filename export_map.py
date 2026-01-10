@@ -75,20 +75,19 @@ def fetch_tiles_manually(ax, ext_x1, ext_y1, ext_x2, ext_y2, zoom, tile_url_temp
     
     print(f"[ManualTiles] Fetching {num_tiles} tiles (x: {x_min}-{x_max}, y: {y_min}-{y_max})")
     
-    # Create session with SSL disabled
+    # Create session with proper SSL verification using certifi
     session = requests.Session()
-    session.verify = False
     session.headers.update({
         'User-Agent': 'HailFootprintApp/1.0 (Python/requests)',
         'Accept': 'image/png,image/*'
     })
     
-    # Suppress SSL warnings
+    # Use certifi certificates for proper SSL verification
     try:
-        import urllib3
-        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    except:
-        pass
+        import certifi
+        session.verify = certifi.where()
+    except ImportError:
+        session.verify = True  # Use system certificates
     
     # Fetch tiles
     tile_size = 256
@@ -389,18 +388,17 @@ def generate_map_png(output_folder, geojson_file, footprint_file, points_file, b
     basemap_added = False
     
     if HAS_CTX and basemap_id and basemap_id != 'none':
-        # Disable SSL verification
-        _original_get = requests.get
-        def _patched_get(url, **kwargs):
-            kwargs['verify'] = False
-            return _original_get(url, **kwargs)
-        requests.get = _patched_get
-        
+        # Use certifi for proper SSL verification
         try:
-            import urllib3
-            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-        except:
-            pass
+            import certifi
+            _original_get = requests.get
+            def _patched_get(url, **kwargs):
+                if 'verify' not in kwargs:
+                    kwargs['verify'] = certifi.where()
+                return _original_get(url, **kwargs)
+            requests.get = _patched_get
+        except ImportError:
+            pass  # Use system certificates if certifi not available
         
         # Calculate zoom
         center_lat_3857 = (ext_y1 + ext_y2) / 2
