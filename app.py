@@ -3,32 +3,22 @@ import uuid
 import json
 import threading
 import ssl
-import time
 import io
-import base64
 import re
 import traceback
-import warnings
 from pathlib import Path
 from datetime import datetime
-
 import numpy as np
 import pandas as pd
 import requests
 import urllib3
 from flask import (Flask, render_template, request, jsonify, send_from_directory, 
-                   url_for, session, send_file, Response, make_response)
+url_for, session, send_file, Response, make_response)
 from werkzeug.utils import secure_filename
 from flask_cors import CORS
-from pyproj import Transformer
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 import geopandas as gpd
 from config import Config
-from processing.footprint import Params, run_footprint, get_processing_status
+from processing.footprint import Params, run_footprint
 from export_map import generate_map_png
 
 # ssl setup
@@ -41,14 +31,14 @@ try:
 except Exception as e:
     print(f"[SSL] Error disabling SSL: {e}")
 
-# monkey patch requests for internal logic
+# monkey patch requests 
 _original_request = requests.Session.request
 def _patched_request(self, method, url, **kwargs):
     kwargs['verify'] = False
     return _original_request(self, method, url, **kwargs)
 requests.Session.request = _patched_request
 
-# app setup
+# setup
 app = Flask(__name__)
 app.config.from_object(Config)
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024 
@@ -59,15 +49,13 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 Config.UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 Config.OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
 
-# state management (file based)
+# state management
 def get_status_file(job_id):
     """path to the status JSON file for a specific job."""
     return Config.OUTPUT_FOLDER / job_id / 'status.json'
 
 def save_job_state(job_id, data):
-    """save job state to disk atomically.
-    this enables sharing state between multiple Gunicorn workers.
-    """
+    """save job state to disk atomically."""
     try:
         file_path = get_status_file(job_id)
         file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -124,9 +112,8 @@ def allowed_file(filename):
 
 def guess_column_type(col_name):
     """
-    Guess the column type and return (type, priority).
-    Priority 1 = exact match, Priority 2 = partial/regex match.
-    Lower priority number = better match.
+    guess the column type and return (type, priority).
+    Priority 1 = exact match, Priority 2 = partial match.
     """
     col_lower = str(col_name).lower().strip()
     
@@ -160,9 +147,7 @@ def guess_column_type(col_name):
     
     return ('unknown', 99)
 
-# ==========================================
-# ERROR HANDLERS
-# ==========================================
+# error handlers
 @app.after_request
 def add_header(response):
     if request.path.startswith('/upload') or request.path.startswith('/process'):
@@ -183,9 +168,7 @@ def not_found(error):
         return make_json_response({'error': 'Resource not found'}, 404)
     return render_template('error.html', message='Page not found'), 404
 
-# ==========================================
-# MAIN ROUTES
-# ==========================================
+# main routes
 @app.route('/')
 def index():
     max_bytes = getattr(Config, 'MAX_CONTENT_LENGTH', 50 * 1024 * 1024)
@@ -229,11 +212,10 @@ def upload_file():
             
         columns = list(df.columns)
         suggestions = {}
-        priorities = {}  # Track priority for each suggestion type
+        priorities = {}  # Track priority 
         for c in columns:
             col_type, priority = guess_column_type(c)
             if col_type != 'unknown':
-                # Only use this column if it's a better (lower priority) match
                 if col_type not in suggestions or priority < priorities[col_type]:
                     suggestions[col_type] = c
                     priorities[col_type] = priority
@@ -256,7 +238,7 @@ def upload_file():
 
 @app.route('/process', methods=['POST'])
 def process_footprint():
-    """Start processing job."""
+    """start processing job."""
     try:
         data = request.json
         if not data:
@@ -305,13 +287,13 @@ def process_footprint():
         return make_json_response({'error': str(e)}, 500)
 
 def run_processing_job(job_id, params):
-    """Background worker function."""
+    """background worker function."""
     
-    # Load existing or create new state
+    # load existing or create new state
     state = load_job_state(job_id) or {}
     
     def progress_callback(progress, message):
-        # Update state
+        # update state
         state['progress'] = progress
         state['message'] = message
         state['status'] = 'processing'
@@ -320,10 +302,10 @@ def run_processing_job(job_id, params):
     try:
         progress_callback(1, "Starting analysis...")
         
-        # Run the heavy logic
+        # run logic
         result = run_footprint(params, progress_callback=progress_callback)
         
-        # Completion
+        # completion
         state['status'] = 'completed'
         state['progress'] = 100
         state['message'] = 'Done'
@@ -338,10 +320,9 @@ def run_processing_job(job_id, params):
 
 @app.route('/status/<job_id>')
 def get_status(job_id):
-    """Check status via file system."""
+    """check status via file system."""
     state = load_job_state(job_id)
     if not state:
-        # If ID is valid format but file not found, likely starting up
         return make_json_response({'status': 'queued', 'progress': 0, 'message': 'Starting...'})
     return make_json_response(state)
 
@@ -369,16 +350,16 @@ def get_geojson(job_id):
         print(f"[404 Error] Job {job_id} not ready or has no result")
         return make_json_response({'error': 'Not ready'}, 404)
         
-    # Get raw filename/path from result
+    # get raw filename/path from result
     raw_fname = state['result'].get('geojson')
     if not raw_fname: 
         print(f"[404 Error] Job {job_id} result has no 'geojson' key")
         return make_json_response({'error': 'No file recorded'}, 404)
     
-    # FIX: Ensure we only use the filename, not a full path from a previous environment
+    # ensure filename
     filename = Path(raw_fname).name
     
-    # Construct expected path
+    # construct path
     file_path = Config.OUTPUT_FOLDER / job_id / filename
     
     if not file_path.exists(): 
@@ -401,7 +382,7 @@ def get_footprint_geojson(job_id):
     raw_fname = state['result'].get('footprint_geojson')
     if not raw_fname: return make_json_response({'error': 'No file'}, 404)
     
-    # FIX: Use .name to strip directories
+    # use filename
     file_path = Config.OUTPUT_FOLDER / job_id / Path(raw_fname).name
     
     if not file_path.exists(): return make_json_response({'error': 'File missing'}, 404)
@@ -438,7 +419,7 @@ def get_grid_csv(job_id):
         return make_json_response({'error': 'File missing'}, 404)
     
     try:
-        # read the geojson
+        # read geojson
         gdf = gpd.read_file(str(file_path))
         
         # calculate centroids
@@ -455,7 +436,7 @@ def get_grid_csv(job_id):
         # generate csv string
         csv_output = csv_df.to_csv(index=False)
         
-        # return as downloadable csv
+        # return as downloadable 
         event_name = state.get('params', {}).get('event_name', 'grid')
         filename = f"{event_name}_grid.csv"
         
@@ -469,7 +450,7 @@ def get_grid_csv(job_id):
         traceback.print_exc()
         return make_json_response({'error': str(e)}, 500)
 
-# basemap configurations
+# basemap 
 BASEMAPS = {
     'osm': {
         'name': 'OpenStreetMap',
@@ -626,16 +607,16 @@ def render_map(job_id):
     
     data = request.json or {}
     
-    # get parameters from request
+    # get parameters 
     bounds = data.get('bounds')  # [minLon, minLat, maxLon, maxLat]
     basemap_id = data.get('basemap', 'carto_light')
     show_footprint = data.get('show_footprint', True)
     show_outline = data.get('show_outline', True)
     show_points = data.get('show_points', False)
-    opacity = float(data.get('opacity', 0.6))
+    opacity = float(data.get('opacity', 0.7))
     width_px = int(data.get('width_px', 3200))
     height_px = int(data.get('height_px', 2000))
-    outline_width = data.get('outline_width', 2.5)
+    outline_width = data.get('outline_width', 1.5)
     outline_color = data.get('outline_color', '#000000')
     display_mode = data.get('display_mode', 'cells')
     color_map = data.get('color_map', 'ylOrRd')
@@ -678,14 +659,7 @@ def render_map(job_id):
         return make_json_response({'error': str(e)}, 500)
 
 def fetch_tiles_manually(ax, ext_x1, ext_y1, ext_x2, ext_y2, zoom, tile_url_template):
-    """
-    manually fetch map tiles and compose them into a basemap.
-    This bypasses contextily and uses requests directly with SSL disabled.
-    all tile servers used are free and open source:
-    - openstreetmap: open database license (ODbL)
-    - carto: free for most uses
-    - esri: free for development/non-commercial
-    """
+    """manually fetch map tiles and compose them into a basemap"""
     import requests
     import math
     from PIL import Image
@@ -746,7 +720,7 @@ def fetch_tiles_manually(ax, ext_x1, ext_y1, ext_x2, ext_y2, zoom, tile_url_temp
     
     print(f"[ManualTiles] Fetching {num_tiles} tiles (x: {x_min}-{x_max}, y: {y_min}-{y_max})")
     
-    # create session with SSL disabled
+    # create session 
     session = requests.Session()
     session.verify = False
     session.headers.update({'User-Agent': 'HailFootprintApp/1.0 (Python/requests)', 'Accept': 'image/png,image/*'})
@@ -775,7 +749,7 @@ def fetch_tiles_manually(ax, ext_x1, ext_y1, ext_x2, ext_y2, zoom, tile_url_temp
     
     print(f"[ManualTiles] Successfully fetched {len(tiles)} tiles")
     
-    # compose tiles into single image
+    # compose tiles into image
     width = (x_max - x_min + 1) * tile_size
     height = (y_max - y_min + 1) * tile_size
     basemap_img = Image.new('RGB', (width, height), (245, 245, 245))
@@ -787,14 +761,14 @@ def fetch_tiles_manually(ax, ext_x1, ext_y1, ext_x2, ext_y2, zoom, tile_url_temp
             tile_img = tile_img.convert('RGB')
         basemap_img.paste(tile_img, (px, py))
     
-    # calculate extent in web mercator
+    # calculate extent
     nw_lat, nw_lon = num2deg(x_min, y_min, zoom)
     se_lat, se_lon = num2deg(x_max + 1, y_max + 1, zoom)
     
     nw_x, nw_y = latlon_to_mercator(nw_lat, nw_lon)
     se_x, se_y = latlon_to_mercator(se_lat, se_lon)
     
-    # display the basemap
+    # display basemap
     img_array = np.array(basemap_img)
     ax.imshow(img_array, extent=[nw_x, se_x, se_y, nw_y], zorder=1, aspect='auto')
     

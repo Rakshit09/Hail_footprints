@@ -1,4 +1,4 @@
-// One page progressive flow: upload -> configure -> process -> inline viewer
+// One page flow: upload -> configure -> process -> inline viewer
 
 (function () {
   const root = document.getElementById('pageRoot');
@@ -12,12 +12,10 @@
   const ui = () => window.HailUI;
 
   let uploadedData = null;
-  let currentPoller = null;  // Replaces socket
+  let currentPoller = null;
   let uploadState = 'idle';
 
-  // ============================================
-  // Job Poller - Replaces SocketIO
-  // ============================================
+  // Job Poller 
   class JobPoller {
     constructor(jobId, options = {}) {
       this.jobId = jobId;
@@ -54,7 +52,7 @@
         const contentType = response.headers.get('content-type') || '';
         let data = null;
 
-        // Try to parse JSON regardless of HTTP status code
+        // parse JSON 
         if (contentType.includes('application/json')) {
           try {
             data = await response.json();
@@ -65,7 +63,6 @@
 
         // Handle HTTP Errors
         if (!response.ok) {
-          // If we got a 404, but we DO have data saying it's "processing" or "queued", ignore the 404
           const isAlive = data && (data.status === 'processing' || data.status === 'queued');
 
           if (response.status === 404 && !isAlive) {
@@ -74,7 +71,6 @@
             return;
           }
 
-          // If it's not a 404 and not alive, throw error
           if (!isAlive && response.status !== 404) {
             throw new Error(`HTTP ${response.status}`);
           }
@@ -84,14 +80,14 @@
 
         this.retryCount = 0;
 
-        // Update progress
+        // update progress
         this.onProgress({
           progress: data.progress,
           message: data.message,
           status: data.status
         });
 
-        // Handle different statuses
+        // handle different statuses
         switch (data.status) {
           case 'completed':
             this.onComplete({ job_id: this.jobId, result: data.result });
@@ -121,7 +117,6 @@
           this.onError({ error: `Connection lost after ${this.maxRetries} retries` });
           this.stop();
         } else {
-          // Exponential backoff
           const delay = this.pollInterval * Math.pow(1.5, this.retryCount);
           this.scheduleNextPoll(delay);
         }
@@ -135,9 +130,7 @@
     }
   }
 
-  // ============================================
-  // Utility Functions
-  // ============================================
+  // utility functions
   function formatBytes(bytes) {
     if (!Number.isFinite(bytes)) return '';
     const units = ['B', 'KB', 'MB', 'GB'];
@@ -156,9 +149,7 @@
     }[m]));
   }
 
-  // ============================================
-  // Safe JSON Parsing Helper
-  // ============================================
+  // safe JSON parsing helper
   async function safeJsonParse(response) {
     const contentType = response.headers.get('content-type') || '';
     const text = await response.text();
@@ -183,9 +174,7 @@
     }
   }
 
-  // ============================================
-  // Upload State Management
-  // ============================================
+  // upload state management
   function setProgress(pct, label) {
     const bar = $('uploadProgressBar');
     const text = $('uploadProgressText');
@@ -270,9 +259,7 @@
     return null;
   }
 
-  // ============================================
-  // Column Selection & Preview
-  // ============================================
+  // column selection & preview
   function populateSelect(selectId, columns, selected) {
     const select = $(selectId);
     if (!select) return;
@@ -293,14 +280,14 @@
 
     if (!thead || !tbody) return;
 
-    // Helper to check if QC value is acceptable (1 or QC1)
+    // check if QC value is ok (1 or QC1)
     function isQcOk(val) {
       if (val === null || val === undefined || val === '') return true; // No QC = OK
       const strVal = String(val).trim().toLowerCase();
       return strVal === '1' || strVal === 'qc1' || strVal === 'q1';
     }
 
-    // Count missing hail values
+    // missing hail values
     let missingHailRows = 0;
     if (hailColName && rows) {
       missingHailRows = rows.filter(r =>
@@ -308,13 +295,13 @@
       ).length;
     }
 
-    // Count QC issue rows
+    // QC issue rows
     let qcIssueRows = 0;
     if (qcColName && rows) {
       qcIssueRows = rows.filter(r => !isQcOk(r?.[qcColName])).length;
     }
 
-    // Update missing hail badge visibility and count
+    // update missing hail badge and count
     if (missingBadge && missingCount) {
       if (missingHailRows > 0) {
         missingCount.textContent = missingHailRows;
@@ -324,7 +311,7 @@
       }
     }
 
-    // Update QC issue badge visibility and count
+    // update QC issue badge and count
     if (qcBadge && qcCount) {
       if (qcIssueRows > 0) {
         qcCount.textContent = qcIssueRows;
@@ -336,7 +323,6 @@
 
     thead.innerHTML = `<tr>` + columns.map(c => `<th class="px-4 py-3 text-left">${escapeHtml(c)}</th>`).join('') + `</tr>`;
     tbody.innerHTML = (rows || []).map(r => {
-      // Check if hail value is missing (if a hail column is selected)
       const isMissingHail = hailColName && (r?.[hailColName] === null || r?.[hailColName] === undefined || r?.[hailColName] === '');
       const isQcBad = qcColName && !isQcOk(r?.[qcColName]);
 
@@ -344,7 +330,6 @@
       let rowStyle = '';
 
       if (isMissingHail && isQcBad) {
-        // Both issues: split background - red top half, amber bottom half
         rowStyle = 'style="background: linear-gradient(to bottom, rgb(254 226 226 / 0.85) 50%, rgb(254 243 199 / 0.85) 50%);"';
         rowClass = 'hover:opacity-90';
       } else if (isMissingHail) {
@@ -363,7 +348,7 @@
     setTimeout(syncPreviewHeight, 50);
   }
 
-  // Refresh preview when hail or QC column changes
+  // refresh preview 
   document.getElementById('hailCol')?.addEventListener('change', () => {
     if (uploadedData) {
       showPreview(uploadedData.columns, uploadedData.sample_data);
@@ -400,9 +385,7 @@
     }
   }
 
-  // ============================================
-  // File Upload
-  // ============================================
+  // file upload
   async function uploadFile(file) {
     const err = validateFile(file);
     if (err) {
@@ -411,7 +394,7 @@
       return;
     }
 
-    // Reset downstream UI
+    // reset downstream UI
     const pb = $('processBtn');
     if (pb) pb.disabled = true;
     const resultsP = $('resultsPanel');
@@ -452,7 +435,7 @@
         meta: `${data.columns.length} columns · ~${data.row_count.toLocaleString()} rows`
       });
 
-      // Populate selects with suggestions
+      // populate selects with suggestions
       console.log('[Upload] Received suggestions:', data.suggestions);
       console.log('[Upload] Applying longitude suggestion:', data.suggestions?.longitude);
       console.log('[Upload] Applying latitude suggestion:', data.suggestions?.latitude);
@@ -478,9 +461,7 @@
     }
   }
 
-  // ============================================
-  // Dropzone Initialization
-  // ============================================
+  // dropzone initialization
   function initDropzone() {
     const dz = document.getElementById('dropzone');
     const input = document.getElementById('fileInput');
@@ -554,9 +535,7 @@
     });
   }
 
-  // ============================================
-  // Processing
-  // ============================================
+  // processing
   function validateParams(params) {
     const errors = [];
     if (!params.lon_col) errors.push('Longitude column is required');
@@ -591,11 +570,11 @@
     const panel = $('resultsPanel');
     if (panel) panel.style.display = 'block';
 
-    // Viewer link
+    //  link
     const newTab = $('viewerOpenNewTab');
     if (newTab) newTab.href = `viewer/${jobId}`;
 
-    // Viewer geojson
+    //  geojson
     const geoLink = $('viewerDownloadGeoJson');
     if (geoLink) {
       if (result?.geojson) {
@@ -606,7 +585,7 @@
       }
     }
 
-    // Viewer geotiff
+    // geotiff
     const tiffLink = $('viewerDownloadGeoTiff');
     if (tiffLink) {
       if (result?.raster) {
@@ -617,7 +596,7 @@
       }
     }
 
-    // Viewer grid csv
+    // grid csv
     const gridCsvLink = $('viewerDownloadGridCsv');
     if (gridCsvLink) {
       if (result?.geojson) {
@@ -628,7 +607,7 @@
       }
     }
 
-    // Summary
+    // summary
     const summary = $('resultsSummaryBody');
     if (summary) {
       const rows = [
@@ -695,7 +674,7 @@
       return;
     }
 
-    // Stop any existing poller
+    // stop existing poller
     if (currentPoller) {
       currentPoller.stop();
       currentPoller = null;
@@ -724,7 +703,7 @@
 
       ui()?.toast?.('Processing started.', { type: 'info', title: 'Working' });
 
-      // Start polling
+      // start polling
       currentPoller = new JobPoller(data.job_id, {
         pollInterval: 1000,
         maxRetries: 30,
@@ -755,9 +734,7 @@
     }
   }
 
-  // ============================================
-  // Initialization
-  // ============================================
+  // initialization
   function init() {
     setUploadState('idle');
     initDropzone();
@@ -770,7 +747,7 @@
     }
   }
 
-  // Cleanup on page unload
+  // cleanup on page unload
   window.addEventListener('beforeunload', () => {
     if (currentPoller) {
       currentPoller.stop();

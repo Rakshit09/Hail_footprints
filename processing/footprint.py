@@ -1,22 +1,18 @@
 from __future__ import annotations
-
 import os
 import math
 import time
 import json
 from dataclasses import dataclass
 from typing import Optional, Tuple, List, Dict, Callable
-
 import numpy as np
 import pandas as pd
 import geopandas as gpd
 from shapely.geometry import Point, Polygon, MultiPolygon, mapping
 from shapely.ops import unary_union
-
 from pyproj import CRS
 from sklearn.cluster import DBSCAN
 from scipy.spatial import cKDTree
-
 import rasterio
 from rasterio.transform import from_origin
 from rasterio.features import rasterize, shapes
@@ -106,13 +102,13 @@ def read_points_csv(
         if c not in df.columns:
             raise ValueError(f"Missing column '{c}'. Found: {list(df.columns)}")
     
-    # Show sample values before conversion
+    # show sample values
     print(f"  Sample values before conversion:")
     print(f"    {lon_col}: {df[lon_col].head(3).tolist()}")
     print(f"    {lat_col}: {df[lat_col].head(3).tolist()}")
     print(f"    {hail_col}: {df[hail_col].head(3).tolist()}")
     
-    # Track rows before conversion
+    # track rows 
     initial_count = len(df)
     
     for col in (lon_col, lat_col, hail_col):
@@ -123,14 +119,14 @@ def read_points_csv(
         if converted_to_na > 0:
             print(f"  WARNING: {converted_to_na} values in '{col}' could not be converted to numbers")
     
-    # If proxy_hail_size is provided, fill missing hail values with it
+    # use proxy_hail_size if provided
     if proxy_hail_size is not None:
         missing_count = df[hail_col].isna().sum()
         if missing_count > 0:
             print(f"  Filling {missing_count} missing hail values with proxy value: {proxy_hail_size}")
             df[hail_col] = df[hail_col].fillna(proxy_hail_size)
     
-    # Track what gets dropped
+    # track dropped
     lon_invalid = df[lon_col].isna().sum()
     lat_invalid = df[lat_col].isna().sum()
     hail_invalid = df[hail_col].isna().sum()
@@ -236,8 +232,7 @@ def idw_knn_optimized(
     xy_query: np.ndarray,
     k: int,
     power: float = 2.0,
-    chunk_size: int = 50000
-) -> np.ndarray:
+    chunk_size: int = 50000) -> np.ndarray: 
     n_query = xy_query.shape[0]
     
     if n_query == 0:
@@ -444,7 +439,7 @@ def run_footprint(
         pts_proj.geometry.y.to_numpy()
     ])
     
-    # export points GeoJSON (in WGS84)
+    # export points GeoJSON
     pts_export = pts_proj.to_crs(epsg=4326)
     pts_export.to_file(points_geojson_path, driver="GeoJSON")
     print(f"  Saved points GeoJSON: {points_geojson_path}")
@@ -641,18 +636,18 @@ def run_footprint(
         geometry=gpd.GeoSeries(geoms, crs=crs_work),
     )
     
-    # Convert to WGS84 for output
+    # convert to WGS84 for output
     fpt_4326 = fpt.to_crs(epsg=4326)
     fpt_out = fpt.to_crs(crs_in)
     
-    # Save outputs
+    # save outputs
     update_progress(85, "Saving outputs...")
     
     if os.path.exists(out_poly):
         os.remove(out_poly)
     fpt_out.to_file(out_poly, layer=out_poly_layer, driver="GPKG")
     
-    # Save GeoJSON in WGS84
+    # save GeoJSON in WGS84
     fpt_4326.to_file(out_geojson, driver="GeoJSON")
     print(f"  Saved footprint GeoJSON: {out_geojson}")
     
@@ -714,7 +709,7 @@ def run_footprint(
     dt = time.time() - t0
     update_progress(100, f"Completed in {dt:.1f}s")
     
-    # return filenames only
+    # return filenames 
     return {
         "raster": view_raster_filename,
         "raw_raster": raster_filename,
@@ -728,8 +723,8 @@ def run_footprint(
         "n_groups": len(group_data_list),
         "n_points": len(pts_proj),
         "processing_seconds": round(dt, 2),
-        "bounds": bounds,  # [minx, miny, maxx, maxy] = [lon_min, lat_min, lon_max, lat_max]
-        "center": center,  # [lat, lon]
+        "bounds": bounds,  
+        "center": center, 
         "hail_min": sanitize_value(hail_min),
         "hail_max": sanitize_value(hail_max),
         "job_id": params.job_id,
@@ -743,7 +738,7 @@ def export_client_png(
     event_name: str,
     cmap: str = "YlOrRd"
 ) -> None:
-    """export publication-ready png map"""
+    """export png map"""
     fpt_3857 = fpt_out.to_crs(epsg=3857)
     foot_3857 = footprint.to_crs(epsg=3857)
     

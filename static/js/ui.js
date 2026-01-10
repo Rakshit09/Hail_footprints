@@ -1,5 +1,3 @@
-// UI helpers (no framework dependency)
-// Exposes: window.HailUI = { toast, setBusy, reveal, collapse }
 
 (function () {
   function toast(message, opts) {
@@ -45,19 +43,14 @@
 
   function reveal(el) {
     if (!el) return;
-    // Show the element
     el.style.display = 'block';
-    // Trigger reflow for animation
     el.offsetHeight;
-    // Add visible class for CSS transition
     el.classList.add('visible');
   }
 
   function collapse(el) {
     if (!el) return;
-    // Remove visible class
     el.classList.remove('visible');
-    // Hide after transition
     setTimeout(() => {
       el.style.display = 'none';
     }, 400);

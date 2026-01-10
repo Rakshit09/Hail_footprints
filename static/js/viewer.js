@@ -428,7 +428,7 @@
     try { map.fitBounds(leafletBounds, { padding: [50, 50], maxZoom: 12 }); }
     catch (e) { map.setView(center, 8); }
 
-    // color scale - dynamic based on selected colormap
+    // selected colormap
     let currentColorMap = 'ylOrRd';
 
     function getColorStops() {
@@ -474,12 +474,12 @@
         `rgb(${s.color[0]},${s.color[1]},${s.color[2]}) ${s.pos * 100}%`
       ).join(', ');
 
-      // Update legend (horizontal)
+      // update legend
       if (legendGradient) {
         legendGradient.style.background = `linear-gradient(to right, ${gradientStops})`;
       }
 
-      // Also update colormap preview in control panel
+      // update colormap preview
       if (colorMapPreview) {
         colorMapPreview.style.background = `linear-gradient(to right, ${gradientStops})`;
       }
@@ -495,20 +495,20 @@
     let smoothness = 1;
     let geoJsonData = null;
 
-    // Cell border settings
+    // cell border settings
     let showCellBordersEnabled = true;
     let cellBorderWidth = 0.5;
     let cellBorderColor = '#666666';
 
     // outline settings
-    let outlineWidth = 2.5;
+    let outlineWidth = 1.5;
     let outlineColor = '#000000';
 
-    // points settings - pointRadiusMultiplier scales all point sizes
-    let pointRadiusMultiplier = 6;
+    // points settings
+    let pointRadiusMultiplier = 2;
     let pointColor = '#ff7800';
 
-    // helper: find hail value fro properties 
+    // ind hail value fro properties 
     function getHailValueFromFeature(feature) {
       const props = feature?.properties || {};
       const possibleKeys = [
@@ -526,7 +526,7 @@
         }
       }
 
-      // numeric property that could be hail size
+      // numeric property
       for (const [key, val] of Object.entries(props)) {
         if (typeof val === 'number' && val > 0 && val < 100) {
           return val;
@@ -536,7 +536,7 @@
       return (hailMin + hailMax) / 2;
     }
 
-    // calculate point radius based on hail size
+    // calculate point radius 
     function getPointRadius(hailValue) {
       const baseRadius = 4;
       const maxRadius = 12;
@@ -551,7 +551,7 @@
 
     const featureStyles = new WeakMap();
 
-    // canvas continuous layer
+    // canvas layer
     const CanvasContinuousLayer = L.Layer.extend({
       initialize: function (geojson, options) {
         this._geojson = geojson;
@@ -608,7 +608,7 @@
         }
         this._canvas.width = size.x;
         this._canvas.height = size.y;
-        this._canvas.style.opacity = this._options.opacity || 0.6;
+        this._canvas.style.opacity = this._options.opacity || 0.7;
 
         const ctx = this._canvas.getContext('2d');
         ctx.clearRect(0, 0, size.x, size.y);
@@ -713,7 +713,7 @@
             fill: true,
             stroke: true,
             weight: cellBorderWidth,
-            opacity: 0.8,
+            opacity: 0.7,
             color: cellBorderColor,
             fillOpacity: currentOpacity
           };
@@ -778,7 +778,7 @@
       // Clear cached colors
       clearFeatureStyleCache();
 
-      // Re-cache colors with new colormap
+      // Re-cache colors 
       if (footprintLayer) {
         footprintLayer.eachLayer(layer => {
           if (layer.feature) {
@@ -858,7 +858,7 @@
     // display mode change
     displayModeSelect?.addEventListener('change', updateDisplayMode);
 
-    // smoothness slider (for continuous mode)
+    // smoothness slider 
     document.addEventListener('input', (e) => {
       if (e.target.id === 'smoothnessLevel') {
         smoothness = safeNum(e.target.value, 1);
@@ -910,7 +910,7 @@
 
     // outline settings
     function updateOutlineSettings(e) {
-      if (e.target.id === 'outlineWidth') outlineWidth = safeNum(e.target.value, 2.5);
+      if (e.target.id === 'outlineWidth') outlineWidth = safeNum(e.target.value, 1.5);
       if (e.target.id === 'outlineColor') outlineColor = e.target.value;
       updateOutlineStyle();
     }
@@ -935,7 +935,7 @@
 
     // points settings
     function updatePointSettings(e) {
-      if (e.target.id === 'pointRadius') pointRadiusMultiplier = safeNum(e.target.value, 6);
+      if (e.target.id === 'pointRadius') pointRadiusMultiplier = safeNum(e.target.value, 2);
       if (e.target.id === 'pointColor') pointColor = e.target.value;
       updatePointsStyle();
     }
@@ -965,7 +965,7 @@
       }
     });
 
-    // Quick action buttons
+    // action buttons
     el('resetViewBtn')?.addEventListener('click', () => {
       try { map.fitBounds(leafletBounds, { padding: [50, 50], maxZoom: 12 }); }
       catch (e) { map.setView(center, 8); }
