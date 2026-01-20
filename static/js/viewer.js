@@ -1071,10 +1071,33 @@
                 });
               },
               onEachFeature: (feature, layer) => {
-                let html = '<b>Point</b><br>';
-                for (const [k, v] of Object.entries(feature.properties || {})) {
-                  if (v !== null && v !== undefined) html += `${k}: ${v}<br>`;
+                const props = feature.properties || {};
+                const coords = feature.geometry?.coordinates || [];
+                
+                //  fetch mapped column names
+                const lonCol = result?.lon_col;
+                const latCol = result?.lat_col;
+                const hailCol = result?.hail_col;
+                const qcCol = result?.qc_col;
+                
+                let html = '<b>Point Data</b><br>';
+                
+                // add coordinates from geometry
+                if (coords.length >= 2) {
+                  html += `<b>Longitude:</b> ${Number(coords[0]).toFixed(5)}<br>`;
+                  html += `<b>Latitude:</b> ${Number(coords[1]).toFixed(5)}<br>`;
                 }
+                
+                // add hail size 
+                if (hailCol && props[hailCol] !== null && props[hailCol] !== undefined) {
+                  html += `<b>Hail Size:</b> ${Number(props[hailCol]).toFixed(2)} cm<br>`;
+                }
+                
+                // Add QC level 
+                if (qcCol && props[qcCol] !== null && props[qcCol] !== undefined) {
+                  html += `<b>QC Level:</b> ${props[qcCol]}<br>`;
+                }
+                
                 layer.bindPopup(html);
               }
             });
@@ -1084,7 +1107,7 @@
         const loading = el('loading-overlay');
         if (loading) loading.style.display = 'none';
 
-        // initialize colormap selector after a delay
+        // initialize colormap
         setTimeout(() => {
           updateLegendGradient();
         }, 200);

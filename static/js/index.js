@@ -607,6 +607,12 @@
       }
     }
 
+    // custom grid shapefile upload button
+    const customGridBtn = $('viewerUploadGridShapefile');
+    if (customGridBtn) {
+      customGridBtn.onclick = () => showGridShapefileModal(jobId);
+    }
+
     // summary
     const summary = $('resultsSummaryBody');
     if (summary) {
@@ -734,7 +740,204 @@
     }
   }
 
-  // initialization
+  // upload custom grid shapefile
+  function showGridShapefileModal(jobId) {
+    const modalHtml = `
+      <div id="gridShapefileModal" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 relative">
+          <!-- Processing Overlay -->
+          <div id="gridProcessingOverlay" class="absolute inset-0 z-10 bg-white/95 rounded-2xl flex-col items-center justify-center hidden">
+            <div class="w-12 h-12 rounded-full border-[3px] border-blue-200 border-t-brand-blue animate-spin"></div>
+            <div class="mt-4 font-semibold text-brand-dark" id="gridProcessingTitle">Processing Grid</div>
+            <div class="text-sm text-gray-500 mt-1" id="gridProcessingMessage">Uploading shapefile...</div>
+            <div class="w-48 h-2 bg-gray-200 rounded-full mt-4 overflow-hidden">
+              <div id="gridProgressBar" class="h-full bg-brand-blue rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <div class="text-xs text-gray-400 mt-2" id="gridProgressText">0%</div>
+          </div>
+          
+          <h3 class="text-xl font-bold mb-2 flex items-center gap-2">
+            <i class="bi bi-grid-3x3 text-brand-blue"></i> Upload Grid Shapefile
+          </h3>
+          <p class="text-gray-600 mb-4 text-sm">
+            Upload a zipped shapefile (.zip) containing your grid to calculate maximum hail size per cell.
+          </p>
+          <div id="gridUploadZone" class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-brand-blue hover:bg-blue-50/50 transition-all">
+            <input type="file" id="gridShapefileInput" accept=".zip,.shp,.gpkg,.geojson" class="hidden">
+            <i class="bi bi-cloud-upload text-4xl text-gray-400 mb-2"></i>
+            <p class="text-gray-500">Click or drag to upload shapefile (zip)</p>
+          </div>
+          <div id="gridUploadStatus" class="mt-3 p-3 rounded-lg text-sm hidden"></div>
+          <div class="flex justify-end gap-3 mt-4">
+            <button id="gridModalCancel" class="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors">
+              Cancel
+            </button>
+            <button id="gridModalProcess" class="px-4 py-2 rounded-lg bg-brand-blue text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2" disabled>
+              <span id="gridProcessBtnText">Process Grid</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    const modal = $('gridShapefileModal');
+    const uploadZone = $('gridUploadZone');
+    const fileInput = $('gridShapefileInput');
+    const statusDiv = $('gridUploadStatus');
+    const processBtn = $('gridModalProcess');
+    const cancelBtn = $('gridModalCancel');
+    
+    let selectedFile = null;
+    
+    // upload click
+    uploadZone.addEventListener('click', () => fileInput.click());
+    
+    // Drag and drop
+    uploadZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadZone.classList.add('border-brand-blue', 'bg-blue-50');
+    });
+    
+    uploadZone.addEventListener('dragleave', () => {
+      uploadZone.classList.remove('border-brand-blue', 'bg-blue-50');
+    });
+    
+    uploadZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove('border-brand-blue', 'bg-blue-50');
+      if (e.dataTransfer.files.length) {
+        handleFileSelect(e.dataTransfer.files[0]);
+      }
+    });
+    
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length) {
+        handleFileSelect(fileInput.files[0]);
+      }
+    });
+    
+    function handleFileSelect(file) {
+      selectedFile = file;
+      uploadZone.innerHTML = `
+        <i class="bi bi-file-earmark-check text-4xl text-green-500 mb-2"></i>
+        <p class="text-gray-700 font-medium">${escapeHtml(file.name)}</p>
+        <p class="text-gray-400 text-xs">${(file.size / 1024 / 1024).toFixed(2)} MB</p>
+      `;
+      processBtn.disabled = false;
+    }
+    
+    // cancel button
+    cancelBtn.addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
+    
+    // process button
+    processBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+      
+      // overlay elements
+      const overlay = $('gridProcessingOverlay');
+      const progressBar = $('gridProgressBar');
+      const progressText = $('gridProgressText');
+      const processingTitle = $('gridProcessingTitle');
+      const processingMessage = $('gridProcessingMessage');
+      const processBtnText = $('gridProcessBtnText');
+      
+      // show processing overlay
+      processBtn.disabled = true;
+      overlay.classList.remove('hidden');
+      overlay.classList.add('flex');
+      
+      // progress simulation function
+      let currentProgress = 0;
+      const updateProgress = (progress, message) => {
+        currentProgress = progress;
+        progressBar.style.width = `${progress}%`;
+        progressText.textContent = `${progress}%`;
+        if (message) processingMessage.textContent = message;
+      };
+      
+      // simulate progress stages
+      updateProgress(10, 'Uploading shapefile...');
+      
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      
+      try {
+        // simulate upload progress
+        updateProgress(30, 'Processing shapefile...');
+        
+        // use relative URL
+        const response = await fetch(`upload_grid_shapefile/${jobId}`, { method: 'POST', body: formData});
+        
+        updateProgress(60, 'Performing spatial join...');
+        
+        // check response status first
+        if (!response.ok) {
+          // try to get error message from response
+          const contentType = response.headers.get('content-type') || '';
+          let errorMsg = `Server error: ${response.status} ${response.statusText}`;
+          
+          if (contentType.includes('application/json')) {
+            try {
+              const errorData = await response.json();
+              errorMsg = errorData.error || errorMsg;
+            } catch (e) { /* ignore parse error */ }
+          }
+          
+          throw new Error(errorMsg);
+        }
+        
+        // parse JSON response
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          throw new Error('Server returned non-JSON response. Please try again.');
+        }
+        
+        const result = await response.json();
+        
+        updateProgress(80, 'Generating CSV output...');
+        
+        if (result.success) {
+          updateProgress(100, 'Complete!');
+          processingTitle.textContent = 'Processing Complete';
+          processingMessage.innerHTML = `<span class="text-green-600"><i class="bi bi-check-circle"></i> ${escapeHtml(result.message)}</span>`;
+          
+          // auto-download after short delay
+          setTimeout(() => {
+            window.location.href = result.download_url;
+            modal.remove();
+          }, 1500);
+        } else {
+          // hide overlay and show error  
+          overlay.classList.add('hidden');
+          overlay.classList.remove('flex');
+          statusDiv.classList.remove('hidden', 'bg-blue-100', 'text-blue-700', 'bg-green-100', 'text-green-700');
+          statusDiv.classList.add('bg-red-100', 'text-red-700');
+          statusDiv.innerHTML = `<i class="bi bi-x-circle"></i> ${escapeHtml(result.error || 'Unknown error')}`;
+          processBtn.disabled = false;
+          processBtnText.textContent = 'Process Grid';
+        }
+      } catch (err) {
+        // hide overlay and show error
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+        statusDiv.classList.remove('hidden', 'bg-blue-100', 'text-blue-700', 'bg-green-100', 'text-green-700');
+        statusDiv.classList.add('bg-red-100', 'text-red-700');
+        statusDiv.innerHTML = `<i class="bi bi-x-circle"></i> ${escapeHtml(err.message)}`;
+        processBtn.disabled = false;
+        processBtnText.textContent = 'Process Grid';
+      }
+    });
+  }
+
+  // make nodule available globally
+  window.showGridShapefileModal = showGridShapefileModal;
+
+  // initialize
   function init() {
     setUploadState('idle');
     initDropzone();
@@ -747,7 +950,7 @@
     }
   }
 
-  // cleanup on page unload
+  // cleanup on page unload 
   window.addEventListener('beforeunload', () => {
     if (currentPoller) {
       currentPoller.stop();

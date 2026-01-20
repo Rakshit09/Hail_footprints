@@ -20,6 +20,17 @@ import geopandas as gpd
 from config import Config
 from processing.footprint import Params, run_footprint
 from export_map import generate_map_png
+try:
+    from grid_processor import process_grid_with_hail_footprint, validate_shapefile
+    GRID_PROCESSOR_AVAILABLE = True
+except ImportError as e:
+    print(f"[Warning] grid_processor not available: {e}")
+    GRID_PROCESSOR_AVAILABLE = False
+    process_grid_with_hail_footprint = None
+    validate_shapefile = None
+import tempfile
+import shutil
+import zipfile
 
 # SSL setup 
 try:
@@ -159,7 +170,9 @@ def internal_error(error):
 
 @app.errorhandler(404)
 def not_found(error):
-    if request.path.startswith('/status') or request.path.startswith('/process'):
+    # Return JSON for API endpoints
+    api_prefixes = ('/status', '/process', '/upload_grid_shapefile', '/download_custom_grid', '/grid_csv', '/geojson', '/footprint_geojson', '/points_geojson', '/render_map')
+    if any(request.path.startswith(prefix) for prefix in api_prefixes):
         return make_json_response({'error': 'Resource not found'}, 404)
     return render_template('error.html', message='Page not found'), 404
 
@@ -444,6 +457,110 @@ def get_grid_csv(job_id):
     except Exception as e:
         traceback.print_exc()
         return make_json_response({'error': str(e)}, 500)
+
+
+@app.route('/upload_grid_shapefile/<job_id>', methods=['POST'])
+def upload_grid_shapefile(job_id):
+    """upload a grid shapefile (as zip) for processing with hail footprint"""
+    if not GRID_PROCESSOR_AVAILABLE:
+        return make_json_response({'error': 'Grid processor module not available on server'}, 500)
+    
+    state = load_job_state(job_id)
+    if not state or not state.get('result'):
+        return make_json_response({'error': 'Job not ready'}, 404)
+    
+    if 'file' not in request.files:
+        return make_json_response({'error': 'No file provided'}, 400)
+    
+    file = request.files['file']
+    if not file or file.filename == '':
+        return make_json_response({'error': 'No file selected'}, 400)
+    
+    filename = secure_filename(file.filename)
+    
+    # accept .zip or .shp directly
+    if not filename.lower().endswith(('.zip', '.shp', '.gpkg', '.geojson')):
+        return make_json_response({
+            'error': 'Please upload a zipped shapefile (.zip)'}, 400)
+    
+    try:
+        # create temp directory for shapefile
+        temp_dir = Path(tempfile.mkdtemp(prefix=f'grid_{job_id}_'))
+        
+        if filename.lower().endswith('.zip'):
+            # extract zip file
+            zip_path = temp_dir / filename
+            file.save(str(zip_path))
+            
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+            
+            # find the .shp file
+            shp_files = list(temp_dir.glob('**/*.shp'))
+            if not shp_files:
+                shutil.rmtree(temp_dir)
+                return make_json_response({'error': 'No .shp file found in zip'}, 400)
+            
+            shapefile_path = str(shp_files[0])
+        else:
+            # save the file directly
+            shapefile_path = str(temp_dir / filename)
+            file.save(shapefile_path)
+        
+        # validate the shapefile
+        validation = validate_shapefile(shapefile_path)
+        if not validation['valid']:
+            shutil.rmtree(temp_dir)
+            return make_json_response({'error': validation['message']}, 400)
+        
+        # get hail footprint path
+        raw_fname = state['result'].get('geojson')
+        if not raw_fname:
+            shutil.rmtree(temp_dir)
+            return make_json_response({'error': 'No hail footprint found'}, 404)
+        
+        hail_geojson_path = str(Config.OUTPUT_FOLDER / job_id / Path(raw_fname).name)
+        
+        # generate output CSV path
+        event_name = state.get('params', {}).get('event_name', 'grid')
+        output_csv = str(Config.OUTPUT_FOLDER / job_id / f"{event_name}_custom_grid.csv")
+        
+        # process the grid
+        result = process_grid_with_hail_footprint(
+            grid_shapefile=shapefile_path,
+            hail_geojson=hail_geojson_path,
+            output_csv=output_csv
+        )
+        
+        # cleanup temp directory
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        
+        if not result['success']:
+            return make_json_response({'error': result['message']}, 400)
+        
+        # return success - use relative URL without leading slash for deployment compatibility
+        return make_json_response({'success': True, 'n_grid_cells': result['n_grid_cells'], 'download_url': f'download_custom_grid/{job_id}', 'message': result['message']})
+    except Exception as e:
+        traceback.print_exc()
+        if 'temp_dir' in locals():
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        return make_json_response({'error': str(e)}, 500)
+
+
+@app.route('/download_custom_grid/<job_id>')
+def download_custom_grid(job_id):
+    """download the processed custom grid CSV"""
+    state = load_job_state(job_id)
+    if not state:
+        return make_json_response({'error': 'Job not found'}, 404)
+    
+    event_name = state.get('params', {}).get('event_name', 'grid')
+    csv_path = Config.OUTPUT_FOLDER / job_id / f"{event_name}_custom_grid.csv"
+    
+    if not csv_path.exists():
+        return make_json_response({'error': 'Grid CSV not found. Please upload a shapefile first.'}, 404)
+    
+    return send_file(str(csv_path), mimetype='text/csv', as_attachment=True, download_name=f"{event_name}_custom_grid.csv")
 
 # basemap 
 BASEMAPS = {

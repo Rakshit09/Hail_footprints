@@ -728,6 +728,10 @@ def run_footprint(
         "hail_min": sanitize_value(hail_min),
         "hail_max": sanitize_value(hail_max),
         "job_id": params.job_id,
+        "lon_col": params.lon_col,
+        "lat_col": params.lat_col,
+        "hail_col": params.hail_field,
+        "qc_col": params.qc_col,
     }
 
 
