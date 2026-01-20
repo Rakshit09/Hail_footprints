@@ -273,7 +273,8 @@
                                 <div>
                                     <label class="input-label">Event Name <span class="text-red-500">*</span></label>
                                     <input id="eventName" type="text" placeholder="Storm_20240115"
-                                        class="input-field font-mono" />
+                                        class="input-field font-mono"
+                                        title="Unique identifier for this hail event. Used in output filenames and map titles." />
                                 </div>
 
                                 <div>
@@ -281,24 +282,34 @@
                                             class="text-gray-400 text-xs">(optional, used for missing
                                             values)</span></label>
                                     <input id="proxyHailSize" type="number" placeholder="e.g. 2.5" min="0" step="0.1"
-                                        class="input-field font-mono" />
+                                        class="input-field font-mono"
+                                        title="Default hail size (in cm) assigned to data points with missing or invalid hail values. Leave empty to exclude those points." />
                                 </div>
 
-                                <div class="grid grid-cols-3 gap-3">
+                                <div class="grid grid-cols-4 gap-3">
                                     <div>
                                         <label class="input-label text-[10px]">Group (km)</label>
                                         <input id="groupingThreshold" type="number" value="30" min="1" max="100"
-                                            step="1" class="input-field font-mono text-center" />
+                                            step="1" class="input-field font-mono text-center"
+                                            title="Maximum distance (km) between hail points to be grouped into the same storm cluster. Larger values merge distant points; smaller values create separate clusters." />
                                     </div>
                                     <div>
                                         <label class="input-label text-[10px]">Large buf</label>
                                         <input id="largeBuffer" type="number" value="10" min="1" max="50" step="0.5"
-                                            class="input-field font-mono text-center" />
+                                            class="input-field font-mono text-center"
+                                            title="Buffer distance (km) applied around large hail clusters to define the outer footprint boundary." />
                                     </div>
                                     <div>
                                         <label class="input-label text-[10px]">Small buf</label>
                                         <input id="smallBuffer" type="number" value="5" min="1" max="30" step="0.5"
-                                            class="input-field font-mono text-center" />
+                                            class="input-field font-mono text-center"
+                                            title="Buffer distance (km) applied around small or isolated hail clusters to define the outer footprint boundary." />
+                                    </div>
+                                    <div>
+                                        <label class="input-label text-[10px]">IDW Power</label>
+                                        <input id="idwPower" type="number" value="2" min="0" step="any"
+                                            class="input-field font-mono text-center"
+                                            title="Inverse Distance Weighting exponent. Controls how quickly influence decreases with distance. Higher values give more weight to nearby points (sharper transitions); lower values produce smoother interpolation." />
                                     </div>
                                 </div>
 

@@ -671,7 +671,8 @@
       proxy_hail_size: $('proxyHailSize').value ? Number($('proxyHailSize').value) : null,
       grouping_threshold_km: Number($('groupingThreshold').value),
       large_buffer_km: Number($('largeBuffer').value),
-      small_buffer_km: Number($('smallBuffer').value)
+      small_buffer_km: Number($('smallBuffer').value),
+      idw_power: $('idwPower').value ? Number($('idwPower').value) : 2.0
     };
 
     const errors = validateParams(params);

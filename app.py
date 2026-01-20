@@ -269,6 +269,7 @@ def process_footprint():
             grouping_threshold_km=float(data.get('grouping_threshold_km', 30.0)),
             large_buffer_km=float(data.get('large_buffer_km', 10.0)),
             small_buffer_km=float(data.get('small_buffer_km', 5.0)),
+            idw_power=float(data.get('idw_power', 2.0)),
             out_folder=str(out_dir),
             job_id=job_id,
         )
