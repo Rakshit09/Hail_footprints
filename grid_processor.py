@@ -113,12 +113,22 @@ def process_grid_with_hail_footprint(grid_shapefile: str, hail_geojson: str, out
         # create output CSV
         csv_columns = ['longitude', 'latitude', hail_size_field]
         
-        # add gridcode if it exists
+        # add gridcode if it exists (check various column names)
         if 'gridcode' in result_gdf_wgs84.columns:
             csv_columns.append('gridcode')
         elif 'GRIDCODE' in result_gdf_wgs84.columns:
             result_gdf_wgs84['gridcode'] = result_gdf_wgs84['GRIDCODE']
             csv_columns.append('gridcode')
+        
+        # add proxy gridcode from 'Code' column if it exists
+        if 'Code' in result_gdf_wgs84.columns:
+            csv_columns.append('Code')
+        elif 'code' in result_gdf_wgs84.columns:
+            result_gdf_wgs84['Code'] = result_gdf_wgs84['code']
+            csv_columns.append('Code')
+        elif 'CODE' in result_gdf_wgs84.columns:
+            result_gdf_wgs84['Code'] = result_gdf_wgs84['CODE']
+            csv_columns.append('Code')
         
         # select only needed columns
         output_df = result_gdf_wgs84[csv_columns].copy()
