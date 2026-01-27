@@ -71,3 +71,5 @@ wsproto==1.2.0
 xyzservices==2025.11.0
 zipp==3.23.0
 flask_cors
+parquet
+pyarrow

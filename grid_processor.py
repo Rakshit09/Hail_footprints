@@ -10,32 +10,34 @@ from pathlib import Path
 import warnings
 warnings.filterwarnings('ignore')
 
+# Path to proxy ID lookup parquet file
+PROXY_PARQUET_PATH = Path(__file__).parent / 'proxy_id_grid_code_hail.parquet'
+
 
 def process_grid_with_hail_footprint(grid_shapefile: str, hail_geojson: str, output_csv: str, hail_size_field: str = 'Hail_Size') -> dict:
     """process grid with hail footprint"""
+    import time
     try:
-        # load shapefile
-        print(f"[GridProcessor] Loading grid shapefile: {grid_shapefile}")
-        grid_gdf = gpd.read_file(grid_shapefile)
-        print(f"[GridProcessor] Grid loaded: {len(grid_gdf)} cells")
-        
-        # load hail footprint
+        # load hail footprint FIRST to get bounds for filtering
+        t0 = time.time()
         print(f"[GridProcessor] Loading hail footprint: {hail_geojson}")
         hail_gdf = gpd.read_file(hail_geojson)
-        print(f"[GridProcessor] Hail footprint loaded: {len(hail_gdf)} features")
+        print(f"[GridProcessor] Hail footprint loaded: {len(hail_gdf)} features ({time.time()-t0:.1f}s)")
+        
+        # get bounds for bbox filter
+        hail_bounds = hail_gdf.total_bounds  # [minx, miny, maxx, maxy]
+        print(f"[GridProcessor] Hail footprint bounds: {hail_bounds}")
+        
+        # load shapefile with bbox filter for efficiency
+        t1 = time.time()
+        print(f"[GridProcessor] Loading grid shapefile with bbox filter: {grid_shapefile}")
+        grid_gdf = gpd.read_file(grid_shapefile, bbox=tuple(hail_bounds))
+        print(f"[GridProcessor] Grid loaded with bbox filter: {len(grid_gdf)} cells ({time.time()-t1:.1f}s)")
         
         # ensure both are in the same CRS
         if grid_gdf.crs != hail_gdf.crs:
             print(f"[GridProcessor] Reprojecting hail footprint from {hail_gdf.crs} to {grid_gdf.crs}")
             hail_gdf = hail_gdf.to_crs(grid_gdf.crs)
-        
-        # clip grid to hail footprint extent
-        hail_bounds = hail_gdf.total_bounds  # [minx, miny, maxx, maxy]
-        print(f"[GridProcessor] Hail footprint bounds: {hail_bounds}")
-        
-        #bounding box filter
-        grid_gdf = grid_gdf.cx[hail_bounds[0]:hail_bounds[2], hail_bounds[1]:hail_bounds[3]]
-        print(f"[GridProcessor] Grid cells after bbox filter: {len(grid_gdf)}")
         
         if len(grid_gdf) == 0:
             return {
@@ -46,6 +48,7 @@ def process_grid_with_hail_footprint(grid_shapefile: str, hail_geojson: str, out
             }
         
         # spatial join 
+        t2 = time.time()
         print("[GridProcessor] Performing spatial join...")
         
         # ensure hail_size_field exists
@@ -57,9 +60,6 @@ def process_grid_with_hail_footprint(grid_shapefile: str, hail_geojson: str, out
                 'n_grid_cells': 0,
                 'message': f"Field '{hail_size_field}' not found. Available: {available_cols}"
             }
-        
-        # aggregate to get maximum hail size per grid cell
-        print("[GridProcessor] Aggregating maximum hail size per grid cell...")
         
         # keep track of original grid geometry
         grid_gdf_indexed = grid_gdf.copy()
@@ -73,7 +73,10 @@ def process_grid_with_hail_footprint(grid_shapefile: str, hail_geojson: str, out
             predicate='intersects'
         )
         
-        print(f"[GridProcessor] Spatial join result: {len(joined)} intersections")
+        print(f"[GridProcessor] Spatial join result: {len(joined)} intersections ({time.time()-t2:.1f}s)")
+        
+        # aggregate to get maximum hail size per grid cell
+        print("[GridProcessor] Aggregating maximum hail size per grid cell...")
         
         if len(joined) == 0:
             return {
@@ -141,6 +144,38 @@ def process_grid_with_hail_footprint(grid_shapefile: str, hail_geojson: str, out
             output_df['gridcode'] = output_df['gridcode'].astype(int)
         if 'Code' in output_df.columns:
             output_df['Code'] = output_df['Code'].astype(int)
+        
+        # Join with parquet to get ProxyId
+        if 'Code' in output_df.columns and PROXY_PARQUET_PATH.exists():
+            try:
+                print("[GridProcessor] Loading ProxyId lookup from parquet...")
+                unique_codes = output_df['Code'].unique()
+                
+                # load only Grid_Id and ProxyId columns
+                proxy_df = pd.read_parquet(PROXY_PARQUET_PATH, columns=['Grid_Id', 'ProxyId'])
+                
+                # filter to only matching Grid_Ids
+                proxy_df = proxy_df[proxy_df['Grid_Id'].isin(unique_codes)]
+                
+                # merge on Code = Grid_Id
+                output_df = output_df.merge(
+                    proxy_df,
+                    left_on='Code',
+                    right_on='Grid_Id',
+                    how='left'
+                )
+                
+                # drop the duplicate Grid_Id column
+                if 'Grid_Id' in output_df.columns:
+                    output_df = output_df.drop(columns=['Grid_Id'])
+                
+                # ensure ProxyId is integer
+                if 'ProxyId' in output_df.columns:
+                    output_df['ProxyId'] = output_df['ProxyId'].fillna(0).astype(int)
+                    print(f"[GridProcessor] added ProxyId for {(output_df['ProxyId'] > 0).sum()} cells")
+                
+            except Exception as e:
+                print(f"[GridProcessor] warning: could not load ProxyId: {e}")
         
         # sort by hail size descending for convenience
         output_df = output_df.sort_values(by=hail_size_field, ascending=False)

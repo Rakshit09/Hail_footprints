@@ -470,6 +470,9 @@ def get_grid_csv(job_id):
 @app.route('/upload_grid_shapefile/<job_id>', methods=['POST'])
 def upload_grid_shapefile(job_id):
     """upload a grid shapefile (as zip) for processing with hail footprint"""
+    import time
+    t0 = time.time()
+    
     if not GRID_PROCESSOR_AVAILABLE:
         return make_json_response({'error': 'Grid processor module not available on server'}, 500)
     
@@ -485,6 +488,7 @@ def upload_grid_shapefile(job_id):
         return make_json_response({'error': 'No file selected'}, 400)
     
     filename = secure_filename(file.filename)
+    print(f"[GridUpload] Received file: {filename}")
     
     # accept .zip or .shp directly
     if not filename.lower().endswith(('.zip', '.shp', '.gpkg', '.geojson')):
@@ -496,12 +500,18 @@ def upload_grid_shapefile(job_id):
         temp_dir = Path(tempfile.mkdtemp(prefix=f'grid_{job_id}_'))
         
         if filename.lower().endswith('.zip'):
-            # extract zip file
+            # save zip file
             zip_path = temp_dir / filename
+            print(f"[GridUpload] Saving zip file...")
             file.save(str(zip_path))
+            print(f"[GridUpload] Saved zip ({zip_path.stat().st_size / 1024 / 1024:.1f} MB) in {time.time() - t0:.1f}s")
             
+            # extract zip file
+            t1 = time.time()
+            print(f"[GridUpload] Extracting zip...")
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(temp_dir)
+            print(f"[GridUpload] Extracted in {time.time() - t1:.1f}s")
             
             # find the .shp file
             shp_files = list(temp_dir.glob('**/*.shp'))
@@ -515,11 +525,15 @@ def upload_grid_shapefile(job_id):
             shapefile_path = str(temp_dir / filename)
             file.save(shapefile_path)
         
-        # validate the shapefile
+        print(f"[GridUpload] Shapefile ready: {shapefile_path}")
+        
+        # validate the shapefile (quick check)
+        print(f"[GridUpload] Validating shapefile...")
         validation = validate_shapefile(shapefile_path)
         if not validation['valid']:
             shutil.rmtree(temp_dir)
             return make_json_response({'error': validation['message']}, 400)
+        print(f"[GridUpload] Validation passed: {validation['n_features']} features")
         
         # get hail footprint path
         raw_fname = state['result'].get('geojson')
@@ -534,6 +548,7 @@ def upload_grid_shapefile(job_id):
         output_csv = str(Config.OUTPUT_FOLDER / job_id / f"{event_name}_custom_grid.csv")
         
         # process the grid
+        print(f"[GridUpload] Starting grid processing...")
         result = process_grid_with_hail_footprint(
             grid_shapefile=shapefile_path,
             hail_geojson=hail_geojson_path,
@@ -542,6 +557,8 @@ def upload_grid_shapefile(job_id):
         
         # cleanup temp directory
         shutil.rmtree(temp_dir, ignore_errors=True)
+        
+        print(f"[GridUpload] Total time: {time.time() - t0:.1f}s")
         
         if not result['success']:
             return make_json_response({'error': result['message']}, 400)
