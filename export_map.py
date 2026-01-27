@@ -1,4 +1,3 @@
-
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -490,4 +489,4 @@ def generate_map_png(output_folder, geojson_file, footprint_file, points_file, b
     if len(result) < 1000:
         raise ValueError("Generated image too small")
     
-    return result
+    return result                                                  

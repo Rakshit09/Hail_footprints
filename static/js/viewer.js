@@ -654,29 +654,44 @@
 
         const smoothLevel = this._options.smoothness || 1;
 
-        // draw cells with radial gradients for smooth blending
+        
+        // get average cell size for radius scaling
+        let avgCellSize = 0;
+        if (cells.length > 0) {
+          avgCellSize = cells.reduce((sum, c) => sum + Math.max(c.width, c.height), 0) / cells.length;
+        }
+        avgCellSize = Math.max(avgCellSize, 5); // minimum size
+        
+        // multiplier based on smoothness 
+        const radiusMultiplier = 1.2 + smoothLevel * 0.4;
+        
+        // Sort cells by value 
+        cells.sort((a, b) => a.value - b.value);
+        
+        // Draw overlapping radial gradients 
         for (const cell of cells) {
           const color = getColorRGB(cell.value);
-          const radius = Math.max(cell.width, cell.height) * (1 + smoothLevel * 0.3);
-
-          const gradient = ctx.createRadialGradient(
-            cell.x, cell.y, 0,
-            cell.x, cell.y, radius
-          );
-
+          const baseRadius = Math.max(cell.width, cell.height) * radiusMultiplier;
+          
+          // radial gradient fades smoothly at edges
+          const gradient = ctx.createRadialGradient(cell.x, cell.y, 0,cell.x, cell.y, baseRadius);
+          
+          // gradient stops for smooth blending
           gradient.addColorStop(0, `rgba(${color.r},${color.g},${color.b},1)`);
-          gradient.addColorStop(0.5, `rgba(${color.r},${color.g},${color.b},0.8)`);
-          gradient.addColorStop(0.8, `rgba(${color.r},${color.g},${color.b},0.3)`);
+          gradient.addColorStop(0.3, `rgba(${color.r},${color.g},${color.b},0.95)`);
+          gradient.addColorStop(0.5, `rgba(${color.r},${color.g},${color.b},0.7)`);
+          gradient.addColorStop(0.7, `rgba(${color.r},${color.g},${color.b},0.4)`);
+          gradient.addColorStop(0.85, `rgba(${color.r},${color.g},${color.b},0.15)`);
           gradient.addColorStop(1, `rgba(${color.r},${color.g},${color.b},0)`);
-
+          
           ctx.fillStyle = gradient;
           ctx.beginPath();
-          ctx.arc(cell.x, cell.y, radius, 0, Math.PI * 2);
+          ctx.arc(cell.x, cell.y, baseRadius, 0, Math.PI * 2);
           ctx.fill();
         }
-
-        // additional blur for extra smoothing
-        const blurRadius = smoothLevel * 2;
+        
+        // apply additional blur for extra smoothness
+        const blurRadius = Math.max(1, smoothLevel * 1.5);
         if (blurRadius > 0) {
           ctx.filter = `blur(${blurRadius}px)`;
           ctx.drawImage(this._canvas, 0, 0);

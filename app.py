@@ -442,6 +442,13 @@ def get_grid_csv(job_id):
             csv_columns.append('gridcode')
         csv_df = gdf[csv_columns].copy()
         
+        # Ensure proper data types
+        csv_df['longitude'] = csv_df['longitude'].astype(float)
+        csv_df['latitude'] = csv_df['latitude'].astype(float)
+        csv_df['Hail_Size'] = csv_df['Hail_Size'].astype(float)
+        if 'gridcode' in csv_df.columns:
+            csv_df['gridcode'] = csv_df['gridcode'].astype(int)
+        
         # generate csv string
         csv_output = csv_df.to_csv(index=False)
         

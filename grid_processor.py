@@ -133,6 +133,15 @@ def process_grid_with_hail_footprint(grid_shapefile: str, hail_geojson: str, out
         # select only needed columns
         output_df = result_gdf_wgs84[csv_columns].copy()
         
+        # Ensure proper data types
+        output_df['longitude'] = output_df['longitude'].astype(float)
+        output_df['latitude'] = output_df['latitude'].astype(float)
+        output_df[hail_size_field] = output_df[hail_size_field].astype(float)
+        if 'gridcode' in output_df.columns:
+            output_df['gridcode'] = output_df['gridcode'].astype(int)
+        if 'Code' in output_df.columns:
+            output_df['Code'] = output_df['Code'].astype(int)
+        
         # sort by hail size descending for convenience
         output_df = output_df.sort_values(by=hail_size_field, ascending=False)
         

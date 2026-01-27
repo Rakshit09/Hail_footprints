@@ -610,19 +610,49 @@ def run_footprint(
         with rasterio.open(view_raster, "w", **profile2) as dst:
             dst.write(a, 1)
     
-    # polygonize
+    # polygonize - create individual cell polygons to prevent merging of same-value cells
     update_progress(80, "Polygonizing raster...")
     
     with rasterio.open(out_raster) as src:
         band = src.read(1)
-        mask = band != 0
+        transform = src.transform
+        
+        # Find all non-zero cells
+        rows, cols = np.where(band != 0)
+        
+        if len(rows) == 0:
+            raise RuntimeError("Polygonization produced no shapes")
         
         geoms = []
         vals = []
-        for geom, val in shapes(band, mask=mask, transform=src.transform):
-            if val != 0:
-                geoms.append(shape(geom))
-                vals.append(int(val))
+        
+        # Create individual cell polygons for each pixel
+        # This prevents adjacent cells with same value from being merged
+        for row, col in zip(rows, cols):
+            val = int(band[row, col])
+            if val == 0:
+                continue
+            
+            # Calculate cell corners using the raster transform
+            # transform: (a, b, c, d, e, f) where:
+            # x = a*col + b*row + c
+            # y = d*col + e*row + f
+            x_min = transform.c + col * transform.a
+            x_max = transform.c + (col + 1) * transform.a
+            y_max = transform.f + row * transform.e  # e is negative
+            y_min = transform.f + (row + 1) * transform.e
+            
+            # Create polygon for this cell
+            cell_poly = Polygon([
+                (x_min, y_min),
+                (x_min, y_max),
+                (x_max, y_max),
+                (x_max, y_min),
+                (x_min, y_min)
+            ])
+            
+            geoms.append(cell_poly)
+            vals.append(val)
     
     if not geoms:
         raise RuntimeError("Polygonization produced no shapes")
